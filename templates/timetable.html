@@ -1,0 +1,455 @@
+{% extends "base.html" %}
+
+{% block title %}My Timetable{% endblock %}
+
+{% block extra_head %}
+<style>
+  /* -----------------------------------------------------------------------
+     Timetable Page
+  ----------------------------------------------------------------------- */
+
+  /* Day-of-week order used for sorting rows visually in the legend */
+  .day-order { display: none; }
+
+  /* ── Timetable table ── */
+  .timetable-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.88rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+  }
+
+  .timetable-table thead tr {
+    background: linear-gradient(135deg, var(--mmu-navy) 0%, #1a3a6e 100%);
+  }
+
+  .timetable-table thead th {
+    color: rgba(255,255,255,0.85);
+    font-family: 'Poppins', sans-serif;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0.85rem 1.1rem;
+    border: none;
+    white-space: nowrap;
+  }
+
+  .timetable-table tbody tr {
+    background: #fff;
+    transition: background 0.15s;
+  }
+
+  .timetable-table tbody tr:hover {
+    background: #f8fafc;
+  }
+
+  .timetable-table tbody tr:not(:last-child) td {
+    border-bottom: 1px solid #f1f5f9;
+  }
+
+  .timetable-table tbody td {
+    padding: 0.9rem 1.1rem;
+    vertical-align: middle;
+    color: var(--mmu-text);
+  }
+
+  /* ── Day pill (colour-coded per day) ── */
+  .day-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: 'Poppins', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 700;
+    border-radius: 8px;
+    padding: 4px 12px;
+    white-space: nowrap;
+  }
+
+  .day-Monday    { background: #dbeafe; color: #1e40af; }
+  .day-Tuesday   { background: #ede9fe; color: #5b21b6; }
+  .day-Wednesday { background: #fef3c7; color: #92400e; }
+  .day-Thursday  { background: #dcfce7; color: #065f46; }
+  .day-Friday    { background: #fce7f3; color: #9d174d; }
+  .day-Saturday  { background: #ffedd5; color: #9a3412; }
+  .day-Sunday    { background: #f1f5f9; color: #475569; }
+
+  /* ── Course name cell ── */
+  .course-name-cell {
+    font-weight: 600;
+    color: var(--mmu-navy);
+    font-size: 0.9rem;
+  }
+
+  .course-code-small {
+    display: inline-block;
+    background: var(--mmu-blue-lt);
+    color: var(--mmu-blue);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    border-radius: 4px;
+    padding: 1px 6px;
+    margin-right: 6px;
+  }
+
+  /* ── Section pill ── */
+  .section-pill {
+    display: inline-block;
+    background: #f1f5f9;
+    color: #475569;
+    border-radius: 6px;
+    padding: 3px 9px;
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+
+  /* ── Time cell ── */
+  .time-cell {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 500;
+    color: var(--mmu-text);
+    white-space: nowrap;
+  }
+
+  .time-cell i {
+    color: var(--mmu-muted);
+    font-size: 0.82rem;
+  }
+
+  /* ── Venue cell ── */
+  .venue-cell {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--mmu-muted);
+    font-size: 0.85rem;
+  }
+
+  /* ── Enrolled-on timestamp ── */
+  .enrolled-on {
+    font-size: 0.75rem;
+    color: var(--mmu-muted);
+  }
+
+  /* ── Summary card at top ── */
+  .summary-card {
+    background: linear-gradient(135deg, var(--mmu-navy) 0%, #143566 100%);
+    border-radius: 14px;
+    color: #fff;
+    padding: 1.5rem 2rem;
+    margin-bottom: 1.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+    box-shadow: 0 4px 20px rgba(10,35,66,0.20);
+  }
+
+  .summary-card .summary-label {
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.60);
+    margin-bottom: 0.2rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .summary-card .summary-value {
+    font-family: 'Poppins', sans-serif;
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .summary-card .summary-unit {
+    font-size: 0.85rem;
+    color: rgba(255,255,255,0.65);
+    margin-left: 4px;
+  }
+
+  .summary-divider {
+    width: 1px;
+    height: 50px;
+    background: rgba(255,255,255,0.20);
+  }
+
+  /* ── Day legend ── */
+  .day-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    align-items: center;
+  }
+
+  .day-legend .legend-label {
+    font-size: 0.72rem;
+    color: var(--mmu-muted);
+    font-weight: 600;
+    margin-right: 0.25rem;
+  }
+
+  /* ── Empty state ── */
+  .empty-timetable {
+    text-align: center;
+    padding: 4rem 1rem;
+    color: var(--mmu-muted);
+  }
+
+  .empty-timetable .empty-icon {
+    font-size: 3.5rem;
+    opacity: 0.25;
+    margin-bottom: 1rem;
+    display: block;
+  }
+
+  .empty-timetable h5 {
+    font-family: 'Poppins', sans-serif;
+    color: #334155;
+    margin-bottom: 0.4rem;
+  }
+
+  /* ── Credit total badge ── */
+  .credit-total-badge {
+    background: rgba(240,165,0,0.15);
+    color: var(--mmu-gold);
+    border: 1px solid rgba(240,165,0,0.30);
+    border-radius: 8px;
+    padding: 4px 12px;
+    font-size: 0.78rem;
+    font-weight: 700;
+  }
+
+  /* Print helper */
+  @media print {
+    .navbar-mmu, footer, .btn, form { display: none !important; }
+    .page-header { background: #0a2342 !important; -webkit-print-color-adjust: exact; }
+    .timetable-table { box-shadow: none; }
+  }
+</style>
+{% endblock %}
+
+
+{% block content %}
+
+<!-- ── Page Header ── -->
+<div class="page-header">
+  <div class="container">
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+      <div>
+        <h1 class="mb-1">
+          <i class="bi bi-calendar3 me-2"></i>My Weekly Timetable
+        </h1>
+        <p>Your enrolled classes for the current semester, sorted by day and time.</p>
+      </div>
+      <div class="d-flex gap-2 align-self-center flex-wrap">
+        <button onclick="window.print()" class="btn btn-light btn-sm fw-semibold">
+          <i class="bi bi-printer me-1"></i>Print
+        </button>
+        <a href="{{ url_for('student_dashboard') }}" class="btn btn-outline-light btn-sm fw-semibold">
+          <i class="bi bi-book-half me-1"></i>Course Catalog
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="container pb-5">
+
+  {% if enrollments %}
+
+    {# Compute total credit hours from all enrolled sections #}
+    {% set total_credits = namespace(value=0) %}
+    {% for e in enrollments %}
+      {% set total_credits.value = total_credits.value + e.section.course.credit_hours %}
+    {% endfor %}
+
+    <!-- ── Summary Banner ── -->
+    <div class="summary-card">
+      <div>
+        <div class="summary-label">Student</div>
+        <div style="font-family:'Poppins',sans-serif; font-size:1.1rem; font-weight:700;">
+          {{ session.get('full_name') }}
+        </div>
+      </div>
+
+      <div class="summary-divider d-none d-sm-block"></div>
+
+      <div>
+        <div class="summary-label">Courses Enrolled</div>
+        <div>
+          <span class="summary-value">{{ enrollments | length }}</span>
+          <span class="summary-unit">course{{ 's' if enrollments|length != 1 else '' }}</span>
+        </div>
+      </div>
+
+      <div class="summary-divider d-none d-sm-block"></div>
+
+      <div>
+        <div class="summary-label">Total Credit Hours</div>
+        <div>
+          <span class="summary-value">{{ total_credits.value }}</span>
+          <span class="summary-unit">credits</span>
+        </div>
+      </div>
+
+      <div class="summary-divider d-none d-sm-block"></div>
+
+      <div>
+        <div class="summary-label">Semester</div>
+        <div style="font-family:'Poppins',sans-serif; font-size:1rem; font-weight:700;">
+          2024 / 2025
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Day Colour Legend ── -->
+    <div class="day-legend">
+      <span class="legend-label">Days:</span>
+      {% set days_present = [] %}
+      {% for e in enrollments %}
+        {% if e.section.day not in days_present %}
+          {% set _ = days_present.append(e.section.day) %}
+          <span class="day-pill day-{{ e.section.day }}">{{ e.section.day }}</span>
+        {% endif %}
+      {% endfor %}
+    </div>
+
+    <!-- ── Timetable Table ── -->
+    <div class="table-responsive">
+      <table class="timetable-table">
+        <thead>
+          <tr>
+            <th><i class="bi bi-calendar-week me-1"></i>Day</th>
+            <th><i class="bi bi-clock me-1"></i>Time</th>
+            <th><i class="bi bi-book me-1"></i>Course</th>
+            <th><i class="bi bi-diagram-3 me-1"></i>Section</th>
+            <th><i class="bi bi-geo-alt me-1"></i>Venue</th>
+            <th><i class="bi bi-star me-1"></i>Credits</th>
+            <th><i class="bi bi-calendar-check me-1"></i>Enrolled On</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for enrollment in enrollments %}
+          {% set section = enrollment.section %}
+          {% set course  = section.course %}
+          <tr>
+
+            <!-- Day -->
+            <td>
+              <span class="day-pill day-{{ section.day }}">
+                <i class="bi bi-calendar2-fill" style="font-size:0.7rem;"></i>
+                {{ section.day }}
+              </span>
+            </td>
+
+            <!-- Time -->
+            <td>
+              <div class="time-cell">
+                <i class="bi bi-clock-fill"></i>
+                <span>{{ section.time }}</span>
+              </div>
+            </td>
+
+            <!-- Course name + code -->
+            <td>
+              <span class="course-code-small">{{ course.course_code }}</span>
+              <span class="course-name-cell">{{ course.course_name }}</span>
+            </td>
+
+            <!-- Section -->
+            <td>
+              <span class="section-pill">{{ section.section_name }}</span>
+            </td>
+
+            <!-- Venue -->
+            <td>
+              <div class="venue-cell">
+                <i class="bi bi-geo-alt-fill"></i>
+                <span>{{ section.venue }}</span>
+              </div>
+            </td>
+
+            <!-- Credit hours -->
+            <td>
+              <span class="credit-total-badge">
+                {{ course.credit_hours }} cr.
+              </span>
+            </td>
+
+            <!-- Enrolled date -->
+            <td>
+              <span class="enrolled-on">
+                {{ enrollment.enrolled_at.strftime('%d %b %Y') }}
+              </span>
+            </td>
+
+          </tr>
+          {% endfor %}
+        </tbody>
+
+        <!-- Table footer: total credits -->
+        <tfoot>
+          <tr style="background:#f8fafc;">
+            <td colspan="5" style="padding:0.75rem 1.1rem; font-size:0.8rem; color:var(--mmu-muted);">
+              <i class="bi bi-info-circle me-1"></i>
+              Timetable is ordered by day and class start time.
+            </td>
+            <td colspan="2" style="padding:0.75rem 1.1rem; text-align:right;">
+              <span style="font-size:0.8rem; color:var(--mmu-muted); margin-right:6px;">Total Credits:</span>
+              <span class="credit-total-badge">{{ total_credits.value }} cr.</span>
+            </td>
+          </tr>
+        </tfoot>
+
+      </table>
+    </div><!-- /.table-responsive -->
+
+    <!-- ── Quick Drop Section (below table) ── -->
+    <div class="mt-4">
+      <h6 class="font-heading mb-3" style="color:var(--mmu-muted); font-size:0.78rem; letter-spacing:0.05em; text-transform:uppercase;">
+        <i class="bi bi-dash-circle me-1"></i>Quick Drop
+      </h6>
+      <div class="d-flex flex-wrap gap-2">
+        {% for enrollment in enrollments %}
+        {% set section = enrollment.section %}
+        {% set course  = section.course %}
+        <form method="POST" action="{{ url_for('drop', section_id=section.id) }}"
+              onsubmit="return confirm('Drop {{ section.section_name }} of {{ course.course_name }}?');">
+          <button type="submit" class="btn-drop">
+            <i class="bi bi-dash-circle me-1"></i>
+            {{ course.course_code }} — {{ section.section_name }}
+          </button>
+        </form>
+        {% endfor %}
+      </div>
+    </div>
+
+  {% else %}
+    <!-- ── Empty State ── -->
+    <div class="card">
+      <div class="card-body empty-timetable">
+        <i class="bi bi-calendar-x empty-icon"></i>
+        <h5>No Classes Enrolled Yet</h5>
+        <p class="mb-3" style="font-size:0.9rem;">
+          You haven't enrolled in any courses this semester.<br>
+          Head to the Course Catalog to get started.
+        </p>
+        <a href="{{ url_for('student_dashboard') }}" class="btn btn-mmu-primary px-4">
+          <i class="bi bi-book-half me-2"></i>Browse Course Catalog
+        </a>
+      </div>
+    </div>
+  {% endif %}
+
+</div><!-- /.container -->
+{% endblock %}
