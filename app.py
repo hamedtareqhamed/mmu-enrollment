@@ -1,26 +1,40 @@
 # app.py
-# MMU Student Enrollment System — Main Flask Application
+# MMU Student Enrollment System — Flask Application (v3)
 #
-# Structural changes from v1:
-#   - Section type architecture: Lecture / Tutorial / Lab
-#   - Lecture-prerequisite rule: students must hold a Lecture enrollment before
-#     they can enroll in any child Tutorial/Lab of that Lecture.
-#   - Dropping a Lecture automatically cascades: all child Tutorial/Lab
-#     enrollments under that Lecture are dropped simultaneously.
-#   - Time-clash validation: applied to both student enrollment and admin
-#     section creation (prevents two sections of any type sharing the same
-#     Day + Time slot across the entire timetable).
-#   - max_capacity: no hard upper limit; admin supplies any integer.
-#   - Seed data: 4 official group members + admin, with realistic Lecture /
-#     Tutorial / Lab sections per course.
+# Key changes from v2:
+#
+#  1. ATOMIC PAIR ENROLLMENT
+#     /student/enroll  (POST) now accepts both lecture_id AND subsection_id
+#     in the same form submission.  Both sections are validated and committed
+#     together, or neither is.  A student cannot enroll in just a Lecture or
+#     just a sub-section — both are required in one action.
+#
+#  2. TUTORIAL XOR LAB PER COURSE
+#     Course.sub_component_type is locked the first time an admin adds a
+#     sub-section.  Subsequent sub-sections must match the locked type.
+#     add_section() enforces this and updates the course field.
+#
+#  3. TIME-CLASH VALIDATION
+#     check_time_clash() checks Day + Time against ALL existing enrollments
+#     for the student.  It is called for BOTH the Lecture and the sub-section
+#     being enrolled atomically.
+#
+#  4. FORM BUG FIX
+#     The day field is now submitted via a standard <select> element in the
+#     templates (no hidden input / JS dependency).  The backend reads
+#     request.form['day'] directly — no brittle JS-to-hidden-input bridge.
+#
+#  5. DROP CASCADE
+#     Dropping a Lecture also drops all child sub-section enrollments the
+#     student holds under that Lecture in the same transaction.
 
 from functools import wraps
 from flask import (Flask, render_template, redirect, url_for,
                    request, session, flash)
-from models import db, User, Course, Section, Enrollment, SECTION_TYPES
+from models import db, User, Course, Section, Enrollment, SECTION_TYPES, SUB_COMPONENT_TYPES
 
 # ---------------------------------------------------------------------------
-# Application Configuration
+# Configuration
 # ---------------------------------------------------------------------------
 
 app = Flask(__name__)
@@ -36,7 +50,6 @@ db.init_app(app)
 # ---------------------------------------------------------------------------
 
 def login_required(f):
-    """Redirect unauthenticated users to the login page."""
     @wraps(f)
     def decorated(*args, **kwargs):
         if 'user_id' not in session:
@@ -47,7 +60,6 @@ def login_required(f):
 
 
 def admin_required(f):
-    """Allow access only to users with role == 'admin'."""
     @wraps(f)
     def decorated(*args, **kwargs):
         if session.get('role') != 'admin':
@@ -58,50 +70,54 @@ def admin_required(f):
 
 
 # ---------------------------------------------------------------------------
-# Shared Business-Logic Helpers
+# Shared Helpers
 # ---------------------------------------------------------------------------
 
-def get_student_enrollments(user_id):
+def get_student_enrollment_map(user_id):
     """
-    Return a dict with three pre-built lookup structures for a given student:
-      enrolled_section_ids  : set of section IDs the student is in
-      enrolled_lecture_ids  : set of section IDs that are Lectures
-      enrolled_course_ids   : set of course IDs the student has a Lecture in
-    These are used by both the student dashboard route and the enroll route.
+    Build lookup structures for a student's current enrollments.
+
+    Returns:
+        enrolled_section_ids (set)  — all section IDs the student holds
+        lecture_by_course    (dict) — course_id -> lecture Section object
+        subsection_by_lecture(dict) — parent_lecture_id -> sub-section Section object
     """
-    my_enrollments = Enrollment.query.filter_by(user_id=user_id).all()
-    enrolled_section_ids = {e.section_id for e in my_enrollments}
-    enrolled_lecture_ids = {
-        e.section_id for e in my_enrollments
-        if e.section.section_type == 'Lecture'
-    }
-    # Map course_id -> lecture section_id the student holds (at most one per course)
-    lecture_by_course = {
-        e.section.course_id: e.section_id
-        for e in my_enrollments
-        if e.section.section_type == 'Lecture'
-    }
-    return enrolled_section_ids, enrolled_lecture_ids, lecture_by_course
+    records = Enrollment.query.filter_by(user_id=user_id).all()
+
+    enrolled_section_ids  = {e.section_id for e in records}
+
+    lecture_by_course = {}
+    subsection_by_lecture = {}
+
+    for e in records:
+        sec = e.section
+        if sec.section_type == 'Lecture':
+            lecture_by_course[sec.course_id] = sec
+        else:
+            # sub-section (Tutorial or Lab)
+            subsection_by_lecture[sec.parent_lecture_id] = sec
+
+    return enrolled_section_ids, lecture_by_course, subsection_by_lecture
 
 
-def check_time_clash(user_id, new_day, new_time, exclude_section_id=None):
+def check_time_clash(user_id, day, time, exclude_ids=None):
     """
-    Return the conflicting Section if the student already has an enrollment
-    on the same Day + Time slot, otherwise return None.
+    Return the first enrolled Section that clashes with (day, time),
+    or None if no clash exists.
 
-    `exclude_section_id` lets the caller skip a specific section (used when
-    checking a section the student is about to drop-and-re-enroll).
+    exclude_ids: iterable of section IDs to ignore (used in drop-then-re-enroll).
     """
-    existing = (
+    exclude_ids = set(exclude_ids or [])
+    clashes = (
         Enrollment.query
         .filter_by(user_id=user_id)
         .join(Section)
-        .filter(Section.day == new_day, Section.time == new_time)
+        .filter(Section.day == day, Section.time == time)
         .all()
     )
-    for e in existing:
-        if e.section_id != exclude_section_id:
-            return e.section   # return the clashing section
+    for e in clashes:
+        if e.section_id not in exclude_ids:
+            return e.section
     return None
 
 
@@ -118,7 +134,6 @@ def index():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    """Authenticate the user and store role info in the session."""
     if 'user_id' in session:
         return redirect(url_for('dashboard'))
 
@@ -134,8 +149,8 @@ def login():
             session['role']      = user.role
             flash(f'Welcome back, {user.full_name}!', 'success')
             return redirect(url_for('dashboard'))
-        else:
-            flash('Invalid username or password. Please try again.', 'danger')
+
+        flash('Invalid username or password.', 'danger')
 
     return render_template('login.html')
 
@@ -143,12 +158,12 @@ def login():
 @app.route('/logout')
 def logout():
     session.clear()
-    flash('You have been logged out successfully.', 'info')
+    flash('You have been logged out.', 'info')
     return redirect(url_for('login'))
 
 
 # ---------------------------------------------------------------------------
-# Shared Router
+# Dashboard Router
 # ---------------------------------------------------------------------------
 
 @app.route('/dashboard')
@@ -167,176 +182,219 @@ def dashboard():
 @login_required
 def student_dashboard():
     """
-    Course catalog for students.
-    Passes enrollment lookup structures to the template so it can
-    render the correct action button (Enroll / Drop / locked states).
+    Render the course catalog.
+
+    Template receives:
+        courses              — all courses ordered by code
+        enrolled_section_ids — set of section IDs student is currently in
+        lecture_by_course    — course_id -> Lecture Section the student holds
+        subsection_by_lecture— parent_lecture_id -> sub-section the student holds
     """
     student_id = session['user_id']
     courses    = Course.query.order_by(Course.course_code).all()
 
-    enrolled_section_ids, enrolled_lecture_ids, lecture_by_course = \
-        get_student_enrollments(student_id)
+    enrolled_section_ids, lecture_by_course, subsection_by_lecture = \
+        get_student_enrollment_map(student_id)
 
     return render_template(
         'student_dashboard.html',
         courses=courses,
         enrolled_section_ids=enrolled_section_ids,
-        enrolled_lecture_ids=enrolled_lecture_ids,
         lecture_by_course=lecture_by_course,
+        subsection_by_lecture=subsection_by_lecture,
     )
 
 
-@app.route('/student/enroll/<int:section_id>', methods=['POST'])
+@app.route('/student/enroll', methods=['POST'])
 @login_required
-def enroll(section_id):
+def enroll():
     """
-    Enroll the current student in a section.
+    Atomic pair enrollment: enroll a student in BOTH a Lecture and one of its
+    sub-sections (Tutorial or Lab) in a single transaction.
 
-    Business rules checked in order:
-      1. Duplicate — already enrolled in this exact section.
-      2. Capacity  — section is full.
-      3. Time clash — Day + Time conflicts with an existing enrollment.
-      4. Lecture prerequisite (Tutorial/Lab only) — student must already
-         hold an enrollment in the parent Lecture of this section.
-      5. One Lecture per course — a student cannot hold two Lecture
-         enrollments for the same course.
+    Form fields expected:
+        lecture_id    — int, ID of the chosen Lecture section
+        subsection_id — int, ID of the chosen Tutorial or Lab section
+
+    Validation order:
+        1. Both IDs must be present and valid.
+        2. The sub-section must be a direct child of the chosen Lecture.
+        3. Student must not already be enrolled in a Lecture for this course.
+        4. Capacity check for both sections.
+        5. Time-clash check for both sections independently.
+        6. Insert both Enrollment rows atomically.
     """
     student_id = session['user_id']
-    section    = db.session.get(Section, section_id)
-    if not section:
-        flash('Section not found.', 'danger')
+
+    # --- Parse IDs ---
+    try:
+        lecture_id    = int(request.form.get('lecture_id', 0))
+        subsection_id = int(request.form.get('subsection_id', 0))
+    except (TypeError, ValueError):
+        flash('Invalid selection. Please choose a Lecture and a sub-section.', 'danger')
         return redirect(url_for('student_dashboard'))
 
-    enrolled_section_ids, enrolled_lecture_ids, lecture_by_course = \
-        get_student_enrollments(student_id)
-
-    # Rule 1: Duplicate enrollment
-    if section_id in enrolled_section_ids:
-        flash('You are already enrolled in this section.', 'warning')
-        return redirect(url_for('student_dashboard'))
-
-    # Rule 2: Capacity check
-    if section.is_full:
+    if not lecture_id or not subsection_id:
         flash(
-            f'{section.section_type} "{section.section_name}" of '
-            f'"{section.course.course_name}" is full '
-            f'({section.max_capacity} / {section.max_capacity} students).',
+            'You must select both a Lecture and a Tutorial/Lab to enroll.',
+            'warning'
+        )
+        return redirect(url_for('student_dashboard'))
+
+    lecture    = db.session.get(Section, lecture_id)
+    subsection = db.session.get(Section, subsection_id)
+
+    if not lecture or not subsection:
+        flash('Selected section not found.', 'danger')
+        return redirect(url_for('student_dashboard'))
+
+    # --- Structural integrity checks ---
+    if lecture.section_type != 'Lecture':
+        flash('Invalid selection: the first section must be a Lecture.', 'danger')
+        return redirect(url_for('student_dashboard'))
+
+    if subsection.parent_lecture_id != lecture.id:
+        flash(
+            f'"{subsection.section_name}" does not belong to '
+            f'"{lecture.section_name}". Please re-select.',
             'danger'
         )
         return redirect(url_for('student_dashboard'))
 
-    # Rule 3: Time-clash validation
-    clash = check_time_clash(student_id, section.day, section.time)
+    enrolled_section_ids, lecture_by_course, subsection_by_lecture = \
+        get_student_enrollment_map(student_id)
+
+    # Rule 1: Already enrolled in this course's Lecture?
+    if lecture.course_id in lecture_by_course:
+        existing = lecture_by_course[lecture.course_id]
+        flash(
+            f'You are already enrolled in "{existing.section_name}" '
+            f'for {lecture.course.course_name}. '
+            f'Drop it first to switch.',
+            'warning'
+        )
+        return redirect(url_for('student_dashboard'))
+
+    # Rule 2: Already enrolled in either of these exact sections?
+    if lecture_id in enrolled_section_ids:
+        flash('You are already enrolled in this Lecture.', 'warning')
+        return redirect(url_for('student_dashboard'))
+    if subsection_id in enrolled_section_ids:
+        flash('You are already enrolled in this sub-section.', 'warning')
+        return redirect(url_for('student_dashboard'))
+
+    # Rule 3: Capacity — Lecture
+    if lecture.is_full:
+        flash(
+            f'Lecture "{lecture.section_name}" is full '
+            f'({lecture.max_capacity}/{lecture.max_capacity}).',
+            'danger'
+        )
+        return redirect(url_for('student_dashboard'))
+
+    # Rule 4: Capacity — sub-section
+    if subsection.is_full:
+        flash(
+            f'{subsection.section_type} "{subsection.section_name}" is full '
+            f'({subsection.max_capacity}/{subsection.max_capacity}).',
+            'danger'
+        )
+        return redirect(url_for('student_dashboard'))
+
+    # Rule 5: Time-clash — Lecture slot
+    clash = check_time_clash(student_id, lecture.day, lecture.time)
     if clash:
         flash(
-            f'Time clash detected: you already have '
-            f'"{clash.section_name}" ({clash.section_type}) '
-            f'on {clash.day} at {clash.time}. '
-            f'Please drop it before enrolling here.',
+            f'Time clash: Lecture "{lecture.section_name}" '
+            f'({lecture.day}, {lecture.time}) conflicts with '
+            f'your enrolled "{clash.section_name}" '
+            f'({clash.section_type}, {clash.day}, {clash.time}).',
             'danger'
         )
         return redirect(url_for('student_dashboard'))
 
-    # Rule 4: Tutorial/Lab prerequisite — must be in the parent Lecture first
-    if section.section_type in ('Tutorial', 'Lab'):
-        if section.parent_lecture_id not in enrolled_lecture_ids:
-            parent = db.session.get(Section, section.parent_lecture_id)
-            parent_name = parent.section_name if parent else 'the required Lecture'
+    # Rule 6: Time-clash — sub-section slot (only if it differs from the Lecture slot)
+    if not (subsection.day == lecture.day and subsection.time == lecture.time):
+        clash = check_time_clash(student_id, subsection.day, subsection.time)
+        if clash:
             flash(
-                f'You must enroll in "{parent_name}" (Lecture) before '
-                f'enrolling in this {section.section_type}.',
-                'warning'
+                f'Time clash: {subsection.section_type} "{subsection.section_name}" '
+                f'({subsection.day}, {subsection.time}) conflicts with '
+                f'your enrolled "{clash.section_name}" '
+                f'({clash.section_type}, {clash.day}, {clash.time}).',
+                'danger'
             )
             return redirect(url_for('student_dashboard'))
 
-    # Rule 5: One Lecture per course
-    if section.section_type == 'Lecture':
-        if section.course_id in lecture_by_course:
-            existing_lec = db.session.get(Section, lecture_by_course[section.course_id])
-            flash(
-                f'You are already enrolled in Lecture '
-                f'"{existing_lec.section_name}" for '
-                f'"{section.course.course_name}". '
-                f'Drop it first if you want to switch.',
-                'warning'
-            )
-            return redirect(url_for('student_dashboard'))
-
-    # All rules passed — create enrollment
-    db.session.add(Enrollment(user_id=student_id, section_id=section_id))
+    # --- Atomic insert: both enrollments or none ---
+    db.session.add(Enrollment(user_id=student_id, section_id=lecture_id))
+    db.session.add(Enrollment(user_id=student_id, section_id=subsection_id))
     db.session.commit()
+
     flash(
-        f'Successfully enrolled in {section.section_type} '
-        f'"{section.section_name}" of "{section.course.course_name}".',
+        f'Enrolled in {lecture.course.course_name}: '
+        f'{lecture.section_name} (Lecture) + '
+        f'{subsection.section_name} ({subsection.section_type}).',
         'success'
     )
     return redirect(url_for('student_dashboard'))
 
 
-@app.route('/student/drop/<int:section_id>', methods=['POST'])
+@app.route('/student/drop/<int:lecture_id>', methods=['POST'])
 @login_required
-def drop(section_id):
+def drop(lecture_id):
     """
-    Drop the student's enrollment in a section.
+    Drop a student's enrollment in a Lecture and all its child sub-sections
+    in a single transaction.
 
-    Cascade rule: if the section being dropped is a Lecture, all child
-    Tutorial/Lab enrollments the student holds under that Lecture are
-    also automatically dropped. This prevents orphaned Tutorial/Lab
-    enrollments without a parent Lecture.
+    Only Lecture IDs are accepted here — dropping is always done at the
+    Lecture level, which automatically removes linked Tutorial/Lab records.
     """
     student_id = session['user_id']
-    section    = db.session.get(Section, section_id)
 
-    if not section:
-        flash('Section not found.', 'danger')
+    lecture = db.session.get(Section, lecture_id)
+    if not lecture or lecture.section_type != 'Lecture':
+        flash('Invalid drop request: must target a Lecture section.', 'danger')
         return redirect(url_for('student_dashboard'))
 
-    enrollment = Enrollment.query.filter_by(
-        user_id=student_id, section_id=section_id
+    lec_enrollment = Enrollment.query.filter_by(
+        user_id=student_id, section_id=lecture_id
     ).first()
 
-    if not enrollment:
-        flash('You are not enrolled in this section.', 'warning')
+    if not lec_enrollment:
+        flash('You are not enrolled in this Lecture.', 'warning')
         return redirect(url_for('student_dashboard'))
 
-    dropped_names = [f'{section.section_type} "{section.section_name}"']
-    db.session.delete(enrollment)
+    dropped = [f'{lecture.section_name} (Lecture)']
+    db.session.delete(lec_enrollment)
 
-    # Cascade: if dropping a Lecture, also drop child Tutorial/Lab enrollments
-    if section.section_type == 'Lecture':
-        child_ids = [s.id for s in section.child_sections]
-        child_enrollments = Enrollment.query.filter(
-            Enrollment.user_id == student_id,
+    # Cascade: drop any child sub-section enrollments the student holds
+    child_ids = [s.id for s in lecture.child_sections]
+    if child_ids:
+        child_records = Enrollment.query.filter(
+            Enrollment.user_id    == student_id,
             Enrollment.section_id.in_(child_ids)
         ).all()
-        for ce in child_enrollments:
-            dropped_names.append(
-                f'{ce.section.section_type} "{ce.section.section_name}"'
+        for ce in child_records:
+            dropped.append(
+                f'{ce.section.section_name} ({ce.section.section_type})'
             )
             db.session.delete(ce)
 
     db.session.commit()
 
-    if len(dropped_names) > 1:
-        flash(
-            f'Dropped: {", ".join(dropped_names)} from '
-            f'"{section.course.course_name}". '
-            f'(Linked Tutorial/Lab sections were also removed.)',
-            'info'
-        )
-    else:
-        flash(
-            f'Dropped {dropped_names[0]} from '
-            f'"{section.course.course_name}".',
-            'info'
-        )
+    flash(
+        f'Dropped from {lecture.course.course_name}: '
+        + ', '.join(dropped) + '.',
+        'info'
+    )
     return redirect(url_for('student_dashboard'))
 
 
 @app.route('/student/timetable')
 @login_required
 def timetable():
-    """Weekly timetable: all enrolled sections ordered by day then time."""
+    """All enrolled sections ordered by day then time."""
     student_id  = session['user_id']
     enrollments = (
         Enrollment.query
@@ -356,7 +414,6 @@ def timetable():
 @login_required
 @admin_required
 def admin_dashboard():
-    """Overview of all courses and their sections."""
     courses = Course.query.order_by(Course.course_code).all()
     return render_template('admin_dashboard.html', courses=courses)
 
@@ -366,50 +423,73 @@ def admin_dashboard():
 @admin_required
 def add_course():
     """
-    Create a new course with its mandatory first Lecture section.
-    The first section created for a course MUST be a Lecture; this is
-    enforced here by locking the section_type to 'Lecture' on first creation.
+    Create a new course with its first (mandatory) Lecture section.
+
+    The day field is submitted via a plain <select> — no JS hidden input —
+    which is the fix for the "All fields are required" bug caused by the
+    previous JS-driven hidden input not firing before form submission.
     """
+    # Days used by the <select> in the template
+    DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
     if request.method == 'POST':
+        # Course fields
         course_code  = request.form.get('course_code', '').strip().upper()
         course_name  = request.form.get('course_name', '').strip()
-        credit_hours = request.form.get('credit_hours', '3')
+        credit_hours = request.form.get('credit_hours', '3').strip()
         description  = request.form.get('description', '').strip()
 
+        # First Lecture section fields
         section_name = request.form.get('section_name', '').strip()
-        day          = request.form.get('day', '').strip()
+        day          = request.form.get('day', '').strip()       # comes from <select>
         time         = request.form.get('time', '').strip()
         venue        = request.form.get('venue', '').strip()
         max_capacity = request.form.get('max_capacity', '').strip()
 
-        # --- Field validation ---
-        if not all([course_code, course_name, section_name, day, time, venue, max_capacity]):
-            flash('All fields are required. Please complete the form.', 'danger')
-            return render_template('add_course.html')
+        # Validate required fields
+        missing = [
+            f for f, v in {
+                'Course Code': course_code,
+                'Course Name': course_name,
+                'Section Name': section_name,
+                'Day': day,
+                'Time': time,
+                'Venue': venue,
+                'Max Capacity': max_capacity,
+            }.items() if not v
+        ]
+        if missing:
+            flash(f'Missing required fields: {", ".join(missing)}.', 'danger')
+            return render_template('add_course.html', days=DAYS)
 
         try:
             max_capacity = int(max_capacity)
-            if max_capacity < 1:
+            credit_hours = int(credit_hours)
+            if max_capacity < 1 or credit_hours < 1:
                 raise ValueError
         except ValueError:
-            flash('Max capacity must be a positive integer.', 'danger')
-            return render_template('add_course.html')
+            flash('Credit hours and max capacity must be positive integers.', 'danger')
+            return render_template('add_course.html', days=DAYS)
+
+        if day not in DAYS:
+            flash('Please select a valid day.', 'danger')
+            return render_template('add_course.html', days=DAYS)
 
         if Course.query.filter_by(course_code=course_code).first():
             flash(f'Course code "{course_code}" already exists.', 'danger')
-            return render_template('add_course.html')
+            return render_template('add_course.html', days=DAYS)
 
-        # --- Persist course ---
+        # Persist
         course = Course(
             course_code=course_code,
             course_name=course_name,
-            credit_hours=int(credit_hours),
-            description=description
+            credit_hours=credit_hours,
+            description=description,
+            sub_component_type=None   # set when first sub-section is added
         )
         db.session.add(course)
         db.session.flush()
 
-        # First section is always a Lecture (enforced — no UI choice for this form)
         section = Section(
             section_name=section_name,
             section_type='Lecture',
@@ -418,19 +498,18 @@ def add_course():
             venue=venue,
             max_capacity=max_capacity,
             course_id=course.id,
-            parent_lecture_id=None   # Lecture sections have no parent
+            parent_lecture_id=None
         )
         db.session.add(section)
         db.session.commit()
 
         flash(
-            f'Course "{course_name}" created with Lecture '
-            f'"{section_name}" successfully.',
+            f'Course "{course_name}" created with Lecture "{section_name}".',
             'success'
         )
         return redirect(url_for('admin_dashboard'))
 
-    return render_template('add_course.html')
+    return render_template('add_course.html', days=DAYS)
 
 
 @app.route('/admin/course/<int:course_id>/add_section', methods=['GET', 'POST'])
@@ -440,86 +519,106 @@ def add_section(course_id):
     """
     Add a Lecture, Tutorial, or Lab section to an existing course.
 
-    Validation:
-      - section_type must be one of the three valid values.
-      - Tutorial/Lab must declare a parent_lecture_id pointing to an
-        existing Lecture section of the same course.
-      - Time-clash check: the new section's Day + Time must not already
-        exist as another section of the same course (prevents accidental
-        duplicates at scheduling level).
+    Tutorial/Lab rules:
+      - Must select a parent Lecture that belongs to this course.
+      - Course.sub_component_type is locked on the first sub-section added.
+        All subsequent sub-sections must match the locked type.
+
+    Day bug fix: day is submitted via <select>, not a JS-filled hidden input.
     """
+    DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
     course = db.session.get(Course, course_id)
     if not course:
         flash('Course not found.', 'danger')
         return redirect(url_for('admin_dashboard'))
 
-    # Existing lectures of this course — needed to populate parent dropdown
-    lecture_sections = [s for s in course.sections if s.section_type == 'Lecture']
+    lecture_sections = course.lecture_sections
 
     if request.method == 'POST':
         section_name      = request.form.get('section_name', '').strip()
         section_type      = request.form.get('section_type', '').strip()
-        day               = request.form.get('day', '').strip()
+        day               = request.form.get('day', '').strip()   # from <select>
         time              = request.form.get('time', '').strip()
         venue             = request.form.get('venue', '').strip()
         max_capacity      = request.form.get('max_capacity', '').strip()
         parent_lecture_id = request.form.get('parent_lecture_id', '').strip() or None
 
-        # --- Field validation ---
-        if not all([section_name, section_type, day, time, venue, max_capacity]):
-            flash('All fields are required.', 'danger')
-            return render_template('add_section.html', course=course,
-                                   lecture_sections=lecture_sections)
+        def _render(msg, category='danger'):
+            flash(msg, category)
+            return render_template(
+                'add_section.html', course=course,
+                lecture_sections=lecture_sections, days=DAYS
+            )
+
+        # Required fields check
+        missing = [
+            f for f, v in {
+                'Section Name': section_name,
+                'Section Type': section_type,
+                'Day': day,
+                'Time': time,
+                'Venue': venue,
+                'Max Capacity': max_capacity,
+            }.items() if not v
+        ]
+        if missing:
+            return _render(f'Missing required fields: {", ".join(missing)}.')
 
         if section_type not in SECTION_TYPES:
-            flash(f'Invalid section type. Must be one of: {", ".join(SECTION_TYPES)}.', 'danger')
-            return render_template('add_section.html', course=course,
-                                   lecture_sections=lecture_sections)
+            return _render(f'Invalid section type "{section_type}".')
+
+        if day not in DAYS:
+            return _render('Please select a valid day.')
 
         try:
             max_capacity = int(max_capacity)
             if max_capacity < 1:
                 raise ValueError
         except ValueError:
-            flash('Max capacity must be a positive integer.', 'danger')
-            return render_template('add_section.html', course=course,
-                                   lecture_sections=lecture_sections)
+            return _render('Max capacity must be a positive integer.')
 
-        # --- Tutorial/Lab must have a parent Lecture ---
+        # ── Tutorial / Lab specific rules ────────────────────────────────────
         resolved_parent_id = None
-        if section_type in ('Tutorial', 'Lab'):
-            if not parent_lecture_id:
-                flash(
-                    f'A {section_type} section must be linked to a parent Lecture. '
-                    f'Please select one from the dropdown.',
-                    'danger'
-                )
-                return render_template('add_section.html', course=course,
-                                       lecture_sections=lecture_sections)
 
-            parent_lec = db.session.get(Section, int(parent_lecture_id))
-            if not parent_lec or parent_lec.course_id != course.id \
-                    or parent_lec.section_type != 'Lecture':
-                flash('Invalid parent Lecture selected.', 'danger')
-                return render_template('add_section.html', course=course,
-                                       lecture_sections=lecture_sections)
+        if section_type in ('Tutorial', 'Lab'):
+            # (a) Course sub_component_type XOR check
+            if course.sub_component_type and course.sub_component_type != section_type:
+                return _render(
+                    f'This course already uses {course.sub_component_type} sections. '
+                    f'You cannot add a {section_type} section to it.'
+                )
+
+            # (b) Parent Lecture required
+            if not parent_lecture_id:
+                return _render(
+                    f'A {section_type} section must be linked to a parent Lecture.'
+                )
+
+            try:
+                parent_lec = db.session.get(Section, int(parent_lecture_id))
+            except (TypeError, ValueError):
+                return _render('Invalid parent Lecture ID.')
+
+            if (not parent_lec
+                    or parent_lec.course_id != course.id
+                    or parent_lec.section_type != 'Lecture'):
+                return _render('The selected parent is not a valid Lecture for this course.')
+
             resolved_parent_id = parent_lec.id
 
-        # --- Time-clash check within the course (same course, same slot) ---
-        clash = next(
+        # ── Schedule conflict within the course ──────────────────────────────
+        conflict = next(
             (s for s in course.sections if s.day == day and s.time == time),
             None
         )
-        if clash:
-            flash(
-                f'Schedule conflict: "{clash.section_name}" ({clash.section_type}) '
-                f'of this course is already scheduled on {day} at {time}.',
-                'danger'
+        if conflict:
+            return _render(
+                f'Schedule conflict: "{conflict.section_name}" '
+                f'({conflict.section_type}) is already on {day} at {time}.'
             )
-            return render_template('add_section.html', course=course,
-                                   lecture_sections=lecture_sections)
 
-        # --- Persist ---
+        # ── Persist ──────────────────────────────────────────────────────────
         section = Section(
             section_name=section_name,
             section_type=section_type,
@@ -531,23 +630,29 @@ def add_section(course_id):
             parent_lecture_id=resolved_parent_id
         )
         db.session.add(section)
+
+        # Lock the course's sub_component_type on first sub-section
+        if section_type in ('Tutorial', 'Lab') and not course.sub_component_type:
+            course.sub_component_type = section_type
+
         db.session.commit()
 
         flash(
-            f'{section_type} "{section_name}" added to "{course.course_name}" successfully.',
+            f'{section_type} "{section_name}" added to "{course.course_name}".',
             'success'
         )
         return redirect(url_for('admin_dashboard'))
 
-    return render_template('add_section.html', course=course,
-                           lecture_sections=lecture_sections)
+    return render_template(
+        'add_section.html', course=course,
+        lecture_sections=lecture_sections, days=DAYS
+    )
 
 
 @app.route('/admin/section/<int:section_id>/students')
 @login_required
 @admin_required
 def view_enrolled_students(section_id):
-    """List all students enrolled in a specific section."""
     section = db.session.get(Section, section_id)
     if not section:
         flash('Section not found.', 'danger')
@@ -568,136 +673,147 @@ def view_enrolled_students(section_id):
 
 
 # ---------------------------------------------------------------------------
-# Database Seed Function
+# Seed Function
 # ---------------------------------------------------------------------------
 
 def seed_database():
     """
-    Populate the database on first run with:
-      - 1 admin account
-      - 4 official project group member student accounts
-      - 3 MMU courses, each with Lecture + Tutorial + Lab sections
-        structured under the new Lecture-subordinate architecture.
+    Populate on first run:
+      - Admin account (admin / admin123)
+      - 4 official group member student accounts (password: student123)
+      - 3 MMU courses, each with Lectures and EITHER Tutorials OR Labs
+        (never both) — enforcing the Tutorial XOR Lab per course rule.
 
-    Idempotent: checks User table before inserting anything.
+    Idempotent: aborts silently if any User row already exists.
     """
 
-    # ── Users ──────────────────────────────────────────────────────────────
+    # ── Users ────────────────────────────────────────────────────────────────
     if not User.query.first():
         admin = User(username='admin', full_name='System Administrator', role='admin')
         admin.set_password('admin123')
 
-        group_members = [
-            ('hamed',    'hamed albazeli',                    'student123'),
-            ('mohamed',  'Mohamed Amer Hassan',               'student123'),
-            ('muhannad', 'Gharawi, Muhannad Mohammed',        'student123'),
-            ('basil',    'Basil Idris Ibrahim Idris',         'student123'),
+        members = [
+            ('hamed',    'hamed albazeli',                 'student123'),
+            ('mohamed',  'Mohamed Amer Hassan',            'student123'),
+            ('muhannad', 'Gharawi, Muhannad Mohammed',     'student123'),
+            ('basil',    'Basil Idris Ibrahim Idris',      'student123'),
         ]
         users = [admin]
-        for username, full_name, password in group_members:
-            u = User(username=username, full_name=full_name, role='student')
-            u.set_password(password)
+        for uname, fname, pwd in members:
+            u = User(username=uname, full_name=fname, role='student')
+            u.set_password(pwd)
             users.append(u)
 
         db.session.add_all(users)
         db.session.commit()
-        print('[Seed] Created admin + 4 group member student accounts.')
+        print('[Seed] Admin + 4 student accounts created.')
 
-    # ── Courses & Sections ─────────────────────────────────────────────────
+    # ── Courses & Sections ───────────────────────────────────────────────────
     if not Course.query.first():
-        # Each entry defines a course and its sections.
-        # Sections list order matters: Lectures come first so their IDs are
-        # available when building Tutorial/Lab parent references.
+        #
+        # Each course uses EITHER 'Tutorial' OR 'Lab' — never both.
+        # parent key in sections data refers to the name of the parent Lecture.
+        #
         courses_data = [
             {
-                'course_code': 'CS101',
-                'course_name': 'Introduction to Programming',
-                'credit_hours': 3,
+                'code': 'CS101',
+                'name': 'Introduction to Programming',
+                'credits': 3,
                 'description': 'Fundamentals of programming using Python.',
+                'sub_type': 'Tutorial',   # this course uses Tutorials only
                 'sections': [
-                    # Lectures
-                    {'name': 'Lecture A',    'type': 'Lecture',  'day': 'Monday',
-                     'time': '08:00 - 10:00', 'venue': 'Auditorium 1',  'capacity': 120,
-                     'parent': None},
-                    {'name': 'Lecture B',    'type': 'Lecture',  'day': 'Wednesday',
-                     'time': '08:00 - 10:00', 'venue': 'Auditorium 1',  'capacity': 120,
-                     'parent': None},
-                    # Tutorials — parent key references the section name above
-                    {'name': 'Tutorial 1',   'type': 'Tutorial', 'day': 'Monday',
-                     'time': '10:00 - 11:00', 'venue': 'Room A101', 'capacity': 30,
-                     'parent': 'Lecture A'},
-                    {'name': 'Tutorial 2',   'type': 'Tutorial', 'day': 'Wednesday',
-                     'time': '10:00 - 11:00', 'venue': 'Room A102', 'capacity': 30,
-                     'parent': 'Lecture A'},
-                    {'name': 'Tutorial 3',   'type': 'Tutorial', 'day': 'Thursday',
-                     'time': '10:00 - 11:00', 'venue': 'Room A103', 'capacity': 30,
-                     'parent': 'Lecture B'},
-                    # Labs
-                    {'name': 'Lab Group 1',  'type': 'Lab',      'day': 'Tuesday',
-                     'time': '14:00 - 16:00', 'venue': 'Lab A1', 'capacity': 20,
-                     'parent': 'Lecture A'},
-                    {'name': 'Lab Group 2',  'type': 'Lab',      'day': 'Thursday',
-                     'time': '14:00 - 16:00', 'venue': 'Lab A2', 'capacity': 20,
-                     'parent': 'Lecture B'},
+                    # ── Lectures ──────────────────────────────────────────
+                    {'name': 'Lecture A', 'type': 'Lecture', 'day': 'Monday',
+                     'time': '08:00 - 10:00', 'venue': 'Auditorium 1',
+                     'capacity': 120, 'parent': None},
+                    {'name': 'Lecture B', 'type': 'Lecture', 'day': 'Wednesday',
+                     'time': '08:00 - 10:00', 'venue': 'Auditorium 1',
+                     'capacity': 120, 'parent': None},
+                    # ── Tutorials under Lecture A ──────────────────────────
+                    {'name': 'Tutorial A1', 'type': 'Tutorial', 'day': 'Monday',
+                     'time': '10:00 - 11:00', 'venue': 'Room A101',
+                     'capacity': 30, 'parent': 'Lecture A'},
+                    {'name': 'Tutorial A2', 'type': 'Tutorial', 'day': 'Tuesday',
+                     'time': '10:00 - 11:00', 'venue': 'Room A102',
+                     'capacity': 30, 'parent': 'Lecture A'},
+                    {'name': 'Tutorial A3', 'type': 'Tutorial', 'day': 'Thursday',
+                     'time': '10:00 - 11:00', 'venue': 'Room A103',
+                     'capacity': 30, 'parent': 'Lecture A'},
+                    # ── Tutorials under Lecture B ──────────────────────────
+                    {'name': 'Tutorial B1', 'type': 'Tutorial', 'day': 'Wednesday',
+                     'time': '10:00 - 11:00', 'venue': 'Room A104',
+                     'capacity': 30, 'parent': 'Lecture B'},
+                    {'name': 'Tutorial B2', 'type': 'Tutorial', 'day': 'Friday',
+                     'time': '10:00 - 11:00', 'venue': 'Room A105',
+                     'capacity': 30, 'parent': 'Lecture B'},
                 ]
             },
             {
-                'course_code': 'SE301',
-                'course_name': 'Software Engineering Principles',
-                'credit_hours': 3,
+                'code': 'SE301',
+                'name': 'Software Engineering Principles',
+                'credits': 3,
                 'description': 'SDLC, agile methodologies, and software design patterns.',
+                'sub_type': 'Lab',    # this course uses Labs only
                 'sections': [
-                    {'name': 'Lecture A',    'type': 'Lecture',  'day': 'Tuesday',
-                     'time': '08:00 - 10:00', 'venue': 'Auditorium 2',  'capacity': 100,
-                     'parent': None},
-                    {'name': 'Tutorial 1',   'type': 'Tutorial', 'day': 'Tuesday',
-                     'time': '10:00 - 11:00', 'venue': 'Room B201', 'capacity': 25,
-                     'parent': 'Lecture A'},
-                    {'name': 'Tutorial 2',   'type': 'Tutorial', 'day': 'Friday',
-                     'time': '10:00 - 11:00', 'venue': 'Room B202', 'capacity': 25,
-                     'parent': 'Lecture A'},
-                    {'name': 'Lab Group 1',  'type': 'Lab',      'day': 'Wednesday',
-                     'time': '14:00 - 16:00', 'venue': 'Lab B1', 'capacity': 20,
-                     'parent': 'Lecture A'},
+                    {'name': 'Lecture A', 'type': 'Lecture', 'day': 'Tuesday',
+                     'time': '08:00 - 10:00', 'venue': 'Auditorium 2',
+                     'capacity': 100, 'parent': None},
+                    {'name': 'Lecture B', 'type': 'Lecture', 'day': 'Thursday',
+                     'time': '08:00 - 10:00', 'venue': 'Auditorium 2',
+                     'capacity': 100, 'parent': None},
+                    # ── Labs under Lecture A ───────────────────────────────
+                    {'name': 'Lab A1', 'type': 'Lab', 'day': 'Tuesday',
+                     'time': '14:00 - 16:00', 'venue': 'Lab B1',
+                     'capacity': 25, 'parent': 'Lecture A'},
+                    {'name': 'Lab A2', 'type': 'Lab', 'day': 'Wednesday',
+                     'time': '14:00 - 16:00', 'venue': 'Lab B2',
+                     'capacity': 25, 'parent': 'Lecture A'},
+                    # ── Labs under Lecture B ───────────────────────────────
+                    {'name': 'Lab B1', 'type': 'Lab', 'day': 'Thursday',
+                     'time': '14:00 - 16:00', 'venue': 'Lab B3',
+                     'capacity': 25, 'parent': 'Lecture B'},
+                    {'name': 'Lab B2', 'type': 'Lab', 'day': 'Friday',
+                     'time': '14:00 - 16:00', 'venue': 'Lab B4',
+                     'capacity': 25, 'parent': 'Lecture B'},
                 ]
             },
             {
-                'course_code': 'DB401',
-                'course_name': 'Database Systems',
-                'credit_hours': 3,
+                'code': 'DB401',
+                'name': 'Database Systems',
+                'credits': 3,
                 'description': 'Relational databases, SQL, normalization, and transactions.',
+                'sub_type': 'Tutorial',   # this course uses Tutorials only
                 'sections': [
-                    {'name': 'Lecture A',    'type': 'Lecture',  'day': 'Thursday',
-                     'time': '08:00 - 10:00', 'venue': 'Auditorium 3',  'capacity': 90,
-                     'parent': None},
-                    {'name': 'Tutorial 1',   'type': 'Tutorial', 'day': 'Friday',
-                     'time': '08:00 - 09:00', 'venue': 'Room C101', 'capacity': 30,
-                     'parent': 'Lecture A'},
-                    {'name': 'Tutorial 2',   'type': 'Tutorial', 'day': 'Friday',
-                     'time': '09:00 - 10:00', 'venue': 'Room C102', 'capacity': 30,
-                     'parent': 'Lecture A'},
-                    {'name': 'Lab Group 1',  'type': 'Lab',      'day': 'Monday',
-                     'time': '14:00 - 16:00', 'venue': 'Lab D1', 'capacity': 20,
-                     'parent': 'Lecture A'},
-                    {'name': 'Lab Group 2',  'type': 'Lab',      'day': 'Wednesday',
-                     'time': '14:00 - 16:00', 'venue': 'Lab D2', 'capacity': 20,
-                     'parent': 'Lecture A'},
+                    {'name': 'Lecture A', 'type': 'Lecture', 'day': 'Thursday',
+                     'time': '10:00 - 12:00', 'venue': 'Auditorium 3',
+                     'capacity': 90, 'parent': None},
+                    # ── Tutorials under Lecture A ──────────────────────────
+                    {'name': 'Tutorial A1', 'type': 'Tutorial', 'day': 'Friday',
+                     'time': '08:00 - 09:00', 'venue': 'Room C101',
+                     'capacity': 30, 'parent': 'Lecture A'},
+                    {'name': 'Tutorial A2', 'type': 'Tutorial', 'day': 'Friday',
+                     'time': '09:00 - 10:00', 'venue': 'Room C102',
+                     'capacity': 30, 'parent': 'Lecture A'},
+                    {'name': 'Tutorial A3', 'type': 'Tutorial', 'day': 'Saturday',
+                     'time': '08:00 - 09:00', 'venue': 'Room C103',
+                     'capacity': 30, 'parent': 'Lecture A'},
                 ]
             },
         ]
 
         for data in courses_data:
             course = Course(
-                course_code=data['course_code'],
-                course_name=data['course_name'],
-                credit_hours=data['credit_hours'],
-                description=data['description']
+                course_code=data['code'],
+                course_name=data['name'],
+                credit_hours=data['credits'],
+                description=data['description'],
+                sub_component_type=data['sub_type']
             )
             db.session.add(course)
-            db.session.flush()   # get course.id
+            db.session.flush()
 
-            # First pass: create all sections; track name -> Section object
-            name_to_section = {}
+            # Pass 1: create all sections
+            name_map = {}
             for sec in data['sections']:
                 s = Section(
                     section_name=sec['name'],
@@ -707,21 +823,19 @@ def seed_database():
                     venue=sec['venue'],
                     max_capacity=sec['capacity'],
                     course_id=course.id,
-                    parent_lecture_id=None   # resolved in second pass
+                    parent_lecture_id=None
                 )
                 db.session.add(s)
-                db.session.flush()   # get s.id
-                name_to_section[sec['name']] = s
+                db.session.flush()
+                name_map[sec['name']] = s
 
-            # Second pass: resolve parent_lecture_id for Tutorial/Lab rows
+            # Pass 2: wire up parent_lecture_id
             for sec in data['sections']:
-                if sec['parent'] is not None:
-                    child  = name_to_section[sec['name']]
-                    parent = name_to_section[sec['parent']]
-                    child.parent_lecture_id = parent.id
+                if sec['parent']:
+                    name_map[sec['name']].parent_lecture_id = name_map[sec['parent']].id
 
         db.session.commit()
-        print('[Seed] Created 3 courses with Lecture / Tutorial / Lab sections.')
+        print('[Seed] 3 courses with Lecture + Tutorial/Lab sections created.')
 
 
 # ---------------------------------------------------------------------------
