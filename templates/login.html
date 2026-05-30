@@ -2,291 +2,33 @@
 
 {% block title %}Login{% endblock %}
 
-{% block extra_head %}
-<style>
-  /* -----------------------------------------------------------------------
-     Login Page — Full-height centered layout with a split design
-  ----------------------------------------------------------------------- */
-
-  /* Remove the default body background; we paint our own here */
-  body {
-    background-color: #f4f7fc;
-  }
-
-  /* Full-height wrapper that vertically + horizontally centers the card */
-  .login-wrapper {
-    min-height: calc(100vh - 64px - 56px); /* viewport minus navbar minus footer */
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 2rem 1rem;
-  }
-
-  /* ---- Login Card ---- */
-  .login-card {
-    width: 100%;
-    max-width: 440px;
-    border: none;
-    border-radius: 18px;
-    box-shadow:
-      0 4px 6px -1px rgba(0,0,0,0.07),
-      0 20px 60px -10px rgba(10,35,66,0.18);
-    overflow: hidden;
-  }
-
-  /* Decorative top banner inside the card */
-  .login-card-banner {
-    background: linear-gradient(135deg, #0a2342 0%, #1a3a6e 60%, #1a56db 100%);
-    padding: 2.2rem 2rem 1.8rem;
-    text-align: center;
-    position: relative;
-    overflow: hidden;
-  }
-
-  /* Subtle decorative circles in the banner */
-  .login-card-banner::before,
-  .login-card-banner::after {
-    content: '';
-    position: absolute;
-    border-radius: 50%;
-    opacity: 0.12;
-    background: #fff;
-  }
-  .login-card-banner::before {
-    width: 180px; height: 180px;
-    top: -60px; right: -50px;
-  }
-  .login-card-banner::after {
-    width: 120px; height: 120px;
-    bottom: -40px; left: -30px;
-  }
-
-  .login-logo {
-    width: 60px;
-    height: 60px;
-    background: linear-gradient(135deg, #f0a500, #f8c740);
-    border-radius: 14px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-family: 'Poppins', sans-serif;
-    font-weight: 700;
-    font-size: 1.6rem;
-    color: #0a2342;
-    margin-bottom: 0.9rem;
-    position: relative;
-    z-index: 1;
-    box-shadow: 0 4px 14px rgba(240,165,0,0.40);
-  }
-
-  .login-card-banner h2 {
-    font-family: 'Poppins', sans-serif;
-    font-weight: 700;
-    font-size: 1.3rem;
-    color: #ffffff;
-    margin-bottom: 0.2rem;
-    position: relative;
-    z-index: 1;
-  }
-
-  .login-card-banner p {
-    font-size: 0.82rem;
-    color: rgba(255,255,255,0.60);
-    margin: 0;
-    position: relative;
-    z-index: 1;
-  }
-
-  /* ---- Form Body ---- */
-  .login-card-body {
-    background: #ffffff;
-    padding: 2rem 2rem 1.75rem;
-  }
-
-  .form-label {
-    font-size: 0.83rem;
-    font-weight: 600;
-    color: #1e293b;
-    margin-bottom: 0.35rem;
-  }
-
-  .form-control {
-    border-radius: 9px;
-    border: 1.5px solid #cbd5e1;
-    font-size: 0.92rem;
-    padding: 0.55rem 0.9rem;
-    transition: border-color 0.18s, box-shadow 0.18s;
-  }
-
-  .form-control:focus {
-    border-color: #1a56db;
-    box-shadow: 0 0 0 3px rgba(26,86,219,0.12);
-  }
-
-  /* Input icons via input-group */
-  .input-group-text {
-    background-color: #f8fafc;
-    border: 1.5px solid #cbd5e1;
-    border-right: none;
-    color: #64748b;
-    border-radius: 9px 0 0 9px;
-  }
-
-  .input-group .form-control {
-    border-left: none;
-    border-radius: 0 9px 9px 0;
-  }
-
-  .input-group .form-control:focus {
-    border-color: #1a56db;
-    box-shadow: 0 0 0 3px rgba(26,86,219,0.12);
-  }
-
-  /* Keep the left border of the icon box in sync on focus */
-  .input-group:focus-within .input-group-text {
-    border-color: #1a56db;
-  }
-
-  /* Submit Button */
-  .btn-login {
-    background: linear-gradient(135deg, #1a56db, #1648c0);
-    border: none;
-    color: #fff;
-    font-family: 'Poppins', sans-serif;
-    font-weight: 600;
-    font-size: 0.95rem;
-    border-radius: 10px;
-    padding: 0.65rem;
-    width: 100%;
-    transition: opacity 0.18s, transform 0.12s, box-shadow 0.18s;
-    box-shadow: 0 4px 14px rgba(26,86,219,0.30);
-    letter-spacing: 0.02em;
-  }
-
-  .btn-login:hover {
-    opacity: 0.92;
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(26,86,219,0.35);
-  }
-
-  .btn-login:active {
-    transform: translateY(0);
-  }
-
-  /* ---- Demo Credentials Box ---- */
-  .demo-box {
-    background: #f0f5ff;
-    border: 1px dashed #a5b4fc;
-    border-radius: 10px;
-    padding: 0.85rem 1rem;
-    font-size: 0.78rem;
-    color: #3730a3;
-    margin-top: 1.25rem;
-  }
-
-  .demo-box strong { display: block; margin-bottom: 0.35rem; font-size: 0.8rem; }
-
-  .demo-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-  }
-
-  .demo-pill {
-    background: #e0e7ff;
-    border-radius: 6px;
-    padding: 2px 8px;
-    font-family: 'Courier New', monospace;
-    font-size: 0.76rem;
-  }
-</style>
-{% endblock %}
-
-
 {% block content %}
-<div class="login-wrapper">
-  <div class="login-card card">
-
-    <!-- ── Banner ── -->
-    <div class="login-card-banner">
-      <div class="login-logo">M</div>
-      <h2>Student Enrollment System</h2>
-      <p>Multimedia University &mdash; Sign in to continue</p>
+<div class="container d-flex align-items-center justify-content-center" style="min-height: 60vh;">
+  <div class="card w-100" style="max-width: 400px;">
+    <div class="card-header text-center py-3">
+      <h5 class="mb-0">System Login</h5>
     </div>
-
-    <!-- ── Form ── -->
-    <div class="login-card-body">
-      <form method="POST" action="{{ url_for('login') }}" novalidate>
-
-        <!-- Username -->
+    <div class="card-body p-4">
+      <form method="POST" action="{{ url_for('login') }}">
         <div class="mb-3">
-          <label for="username" class="form-label">Username</label>
-          <div class="input-group">
-            <span class="input-group-text">
-              <i class="bi bi-person-fill"></i>
-            </span>
-            <input
-              type="text"
-              class="form-control"
-              id="username"
-              name="username"
-              placeholder="Enter your username"
-              value="{{ request.form.get('username', '') }}"
-              required
-              autofocus
-            />
-          </div>
+          <label for="username" class="form-label fw-bold">Username</label>
+          <input type="text" class="form-control rounded-1" id="username" name="username" required autofocus value="{{ request.form.get('username', '') }}">
         </div>
-
-        <!-- Password -->
         <div class="mb-4">
-          <label for="password" class="form-label">Password</label>
-          <div class="input-group">
-            <span class="input-group-text">
-              <i class="bi bi-lock-fill"></i>
-            </span>
-            <input
-              type="password"
-              class="form-control"
-              id="password"
-              name="password"
-              placeholder="Enter your password"
-              required
-            />
-          </div>
+          <label for="password" class="form-label fw-bold">Password</label>
+          <input type="password" class="form-control rounded-1" id="password" name="password" required>
         </div>
-
-        <!-- Submit -->
-        <button type="submit" class="btn-login">
-          <i class="bi bi-box-arrow-in-right me-2"></i>Sign In
-        </button>
-
+        <button type="submit" class="btn btn-primary w-100 fw-bold">Sign In</button>
       </form>
-
-      <!-- ── Demo Credentials Helper ── -->
-      <div class="demo-box">
-        <strong><i class="bi bi-info-circle me-1"></i>Demo Accounts</strong>
-        <div class="demo-row mb-1">
-          <span><i class="bi bi-shield-fill me-1 text-warning"></i>Admin</span>
-          <span>
-            Username: <span class="demo-pill">admin</span>
-            &nbsp;&nbsp;
-            Password: <span class="demo-pill">admin123</span>
-          </span>
-        </div>
-        <div class="demo-row">
-          <span><i class="bi bi-person-fill me-1 text-primary"></i>Student</span>
-          <span>
-            Username: <span class="demo-pill">student1</span>
-            &nbsp;&nbsp;
-            Password: <span class="demo-pill">student123</span>
-          </span>
-        </div>
+      
+      <hr class="my-4">
+      
+      <div class="bg-light p-3 rounded-1 border" style="font-size: 0.85rem;">
+        <strong>Demo Accounts:</strong><br>
+        Admin: <code>admin</code> / <code>admin123</code><br>
+        Student: <code>hamed</code> / <code>student123</code>
       </div>
-
-    </div><!-- /.login-card-body -->
-  </div><!-- /.login-card -->
+    </div>
+  </div>
 </div>
 {% endblock %}

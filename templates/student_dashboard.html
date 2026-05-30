@@ -2,526 +2,134 @@
 
 {% block title %}Course Catalog{% endblock %}
 
-{% block extra_head %}
-<style>
-  /* -----------------------------------------------------------------------
-     Student Dashboard — Course Catalog
-  ----------------------------------------------------------------------- */
-
-  /* Summary stat pills at the top */
-  .stat-pill {
-    background: #fff;
-    border: 1px solid var(--mmu-border);
-    border-radius: 12px;
-    padding: 0.9rem 1.4rem;
-    display: flex;
-    align-items: center;
-    gap: 0.85rem;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
-    flex: 1;
-    min-width: 160px;
-  }
-
-  .stat-pill .stat-icon {
-    width: 42px;
-    height: 42px;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.15rem;
-    flex-shrink: 0;
-  }
-
-  .stat-pill .stat-value {
-    font-family: 'Poppins', sans-serif;
-    font-size: 1.4rem;
-    font-weight: 700;
-    line-height: 1;
-    color: var(--mmu-navy);
-  }
-
-  .stat-pill .stat-label {
-    font-size: 0.75rem;
-    color: var(--mmu-muted);
-    margin-top: 2px;
-  }
-
-  /* Course cards */
-  .course-card {
-    border: 1px solid var(--mmu-border);
-    border-radius: 14px;
-    overflow: hidden;
-    background: #fff;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
-    transition: box-shadow 0.2s, transform 0.15s;
-    margin-bottom: 1.5rem;
-  }
-
-  .course-card:hover {
-    box-shadow: 0 6px 24px rgba(10,35,66,0.11);
-    transform: translateY(-2px);
-  }
-
-  /* Coloured left accent bar per card — cycles through palette */
-  .course-card .card-accent {
-    height: 5px;
-    width: 100%;
-  }
-
-  /* Course card header area */
-  .course-card-header {
-    padding: 1rem 1.25rem 0.6rem;
-    border-bottom: 1px solid #f1f5f9;
-  }
-
-  .course-code-badge {
-    display: inline-block;
-    background: var(--mmu-blue-lt);
-    color: var(--mmu-blue);
-    font-family: 'Poppins', sans-serif;
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    border-radius: 6px;
-    padding: 2px 9px;
-    margin-bottom: 0.4rem;
-    text-transform: uppercase;
-  }
-
-  .course-card-header h5 {
-    font-family: 'Poppins', sans-serif;
-    font-size: 1rem;
-    font-weight: 700;
-    color: var(--mmu-navy);
-    margin: 0 0 0.15rem;
-  }
-
-  .course-desc {
-    font-size: 0.8rem;
-    color: var(--mmu-muted);
-    margin: 0;
-    /* Clamp to 2 lines so cards stay tidy */
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-
-  /* Sections table inside each card */
-  .sections-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.85rem;
-  }
-
-  .sections-table thead tr {
-    background: #f8fafc;
-  }
-
-  .sections-table thead th {
-    padding: 0.55rem 1rem;
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    color: var(--mmu-muted);
-    border-bottom: 1px solid #e2e8f0;
-    white-space: nowrap;
-  }
-
-  .sections-table tbody td {
-    padding: 0.7rem 1rem;
-    vertical-align: middle;
-    border-bottom: 1px solid #f1f5f9;
-    color: var(--mmu-text);
-  }
-
-  .sections-table tbody tr:last-child td {
-    border-bottom: none;
-  }
-
-  /* Row highlight when student is enrolled in that section */
-  .sections-table tbody tr.enrolled-row {
-    background: #f0fdf4;
-  }
-
-  /* Section name pill */
-  .section-name-pill {
-    display: inline-block;
-    background: #f1f5f9;
-    color: #334155;
-    border-radius: 6px;
-    padding: 2px 9px;
-    font-size: 0.78rem;
-    font-weight: 600;
-  }
-
-  /* Schedule info icons */
-  .schedule-info {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .schedule-info span {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    color: var(--mmu-muted);
-    font-size: 0.8rem;
-  }
-
-  .schedule-info span i {
-    font-size: 0.75rem;
-    flex-shrink: 0;
-  }
-
-  /* Seat badge container */
-  .seat-badge-ok,
-  .seat-badge-low,
-  .seat-badge-full {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 3px 10px;
-    border-radius: 20px;
-    font-size: 0.75rem;
-    white-space: nowrap;
-  }
-
-  /* Action button column */
-  .btn-enroll {
-    font-size: 0.8rem;
-    font-weight: 600;
-    border-radius: 7px;
-    padding: 5px 14px;
-    white-space: nowrap;
-    border: none;
-    background: var(--mmu-blue);
-    color: #fff;
-    transition: background 0.18s, transform 0.1s;
-  }
-
-  .btn-enroll:hover {
-    background: #1648c0;
-    color: #fff;
-    transform: translateY(-1px);
-  }
-
-  .btn-enroll:disabled,
-  .btn-enroll[disabled] {
-    background: #cbd5e1;
-    color: #94a3b8;
-    cursor: not-allowed;
-    transform: none;
-  }
-
-  /* Drop button */
-  .btn-drop {
-    font-size: 0.8rem;
-    font-weight: 600;
-    border-radius: 7px;
-    padding: 5px 14px;
-    white-space: nowrap;
-    border: 1.5px solid var(--mmu-danger);
-    background: transparent;
-    color: var(--mmu-danger);
-    transition: background 0.18s, color 0.18s, transform 0.1s;
-  }
-
-  .btn-drop:hover {
-    background: var(--mmu-danger);
-    color: #fff;
-    transform: translateY(-1px);
-  }
-
-  /* "Enrolled" checkmark badge in action column */
-  .enrolled-check {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 0.78rem;
-    font-weight: 600;
-    color: var(--mmu-success);
-    background: #d1fae5;
-    border-radius: 6px;
-    padding: 3px 9px;
-  }
-
-  /* Credit hours pill on the card header */
-  .credit-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 0.72rem;
-    color: var(--mmu-muted);
-    background: #f1f5f9;
-    border-radius: 5px;
-    padding: 1px 7px;
-    margin-left: 0.4rem;
-  }
-
-  /* Empty state */
-  .empty-state {
-    text-align: center;
-    padding: 3rem 1rem;
-    color: var(--mmu-muted);
-  }
-
-  .empty-state i {
-    font-size: 3rem;
-    margin-bottom: 0.75rem;
-    opacity: 0.4;
-  }
-
-  /* Accent colours for course cards (cycles via loop.index) */
-  .accent-1 { background: linear-gradient(90deg, #1a56db, #60a5fa); }
-  .accent-2 { background: linear-gradient(90deg, #0a2342, #1a56db); }
-  .accent-3 { background: linear-gradient(90deg, #f0a500, #fbbf24); }
-  .accent-4 { background: linear-gradient(90deg, #065f46, #34d399); }
-  .accent-5 { background: linear-gradient(90deg, #7c3aed, #a78bfa); }
-  .accent-6 { background: linear-gradient(90deg, #be185d, #f472b6); }
-</style>
-{% endblock %}
-
-
 {% block content %}
-
-<!-- ── Page Header ── -->
 <div class="page-header">
-  <div class="container">
-    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
-      <div>
-        <h1 class="mb-1">
-          <i class="bi bi-book-half me-2"></i>Course Catalog
-        </h1>
-        <p>Browse available courses and manage your enrollment for this semester.</p>
-      </div>
-      <a href="{{ url_for('timetable') }}" class="btn btn-light btn-sm fw-semibold align-self-center">
-        <i class="bi bi-calendar3 me-1"></i>View My Timetable
-      </a>
-    </div>
+  <div class="container d-flex justify-content-between align-items-center">
+    <h2 class="mb-0">Course Catalog</h2>
+    <a href="{{ url_for('timetable') }}" class="btn btn-outline-dark fw-bold">My Timetable</a>
   </div>
 </div>
 
 <div class="container pb-5">
-
-  <!-- ── Summary Stats ── -->
-  {% set total_enrolled = enrolled_section_ids | length %}
-  {% set total_courses  = courses | length %}
-
-  <div class="d-flex flex-wrap gap-3 mb-4">
-
-    <!-- Enrolled courses -->
-    <div class="stat-pill">
-      <div class="stat-icon" style="background:#dbeafe; color:#1a56db;">
-        <i class="bi bi-check2-circle"></i>
-      </div>
-      <div>
-        <div class="stat-value">{{ total_enrolled }}</div>
-        <div class="stat-label">Courses Enrolled</div>
-      </div>
-    </div>
-
-    <!-- Available courses -->
-    <div class="stat-pill">
-      <div class="stat-icon" style="background:#fef9c3; color:#92400e;">
-        <i class="bi bi-journal-bookmark-fill"></i>
-      </div>
-      <div>
-        <div class="stat-value">{{ total_courses }}</div>
-        <div class="stat-label">Total Courses</div>
-      </div>
-    </div>
-
-    <!-- Student name -->
-    <div class="stat-pill ms-auto">
-      <div class="stat-icon" style="background:#dcfce7; color:#065f46;">
-        <i class="bi bi-person-badge-fill"></i>
-      </div>
-      <div>
-        <div class="stat-value" style="font-size:1rem; padding-top:2px;">
-          {{ session.get('full_name') }}
-        </div>
-        <div class="stat-label">Logged in as Student</div>
-      </div>
-    </div>
-
-  </div>
-
-  <!-- ── Course Cards ── -->
   {% if courses %}
     {% for course in courses %}
-
-    {# Cycle through accent colours regardless of index #}
-    {% set accent_class = 'accent-' ~ ((loop.index0 % 6) + 1) %}
-
-    <div class="course-card">
-
-      <!-- Colour accent bar -->
-      <div class="card-accent {{ accent_class }}"></div>
-
-      <!-- Course header -->
-      <div class="course-card-header">
-        <div class="d-flex align-items-start justify-content-between flex-wrap gap-2">
-          <div>
-            <div>
-              <span class="course-code-badge">{{ course.course_code }}</span>
-              <span class="credit-pill">
-                <i class="bi bi-star-fill"></i>{{ course.credit_hours }} Credit Hours
-              </span>
+      <div class="card mb-4 border-dark">
+        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3">
+          <h5 class="mb-0">{{ course.course_code }} - {{ course.course_name }}</h5>
+          <span class="badge bg-light text-dark rounded-1">{{ course.credit_hours }} Credits</span>
+        </div>
+        <div class="card-body bg-light pb-2">
+          <p class="text-muted small mb-3">{{ course.description }}</p>
+          
+          {% if course.id in lecture_by_course %}
+            <div class="alert alert-success rounded-1 py-2 px-3 fw-bold border-success">
+              You are enrolled in this course. Manage drops from <a href="{{ url_for('timetable') }}" class="alert-link">My Timetable</a>.
             </div>
-            <h5>{{ course.course_name }}</h5>
-            {% if course.description %}
-              <p class="course-desc">{{ course.description }}</p>
-            {% endif %}
-          </div>
-          <!-- Show enrolled checkmark if student is in any section of this course -->
-          {% if course.id in enrolled_course_ids %}
-            <span class="enrolled-check align-self-start">
-              <i class="bi bi-patch-check-fill"></i>Enrolled
-            </span>
+          {% else %}
+            <form method="POST" action="{{ url_for('enroll') }}" class="course-enroll-form">
+              
+              <div class="row">
+                <!-- Lectures Column -->
+                <div class="col-md-6 mb-3">
+                  <h6 class="border-bottom border-secondary pb-2 fw-bold text-primary">1. Select Lecture</h6>
+                  {% set lectures = course.lecture_sections %}
+                  {% if lectures %}
+                    {% for lec in lectures %}
+                      <div class="form-check border bg-white p-2 rounded-1 mb-2">
+                        <input class="form-check-input ms-1 lecture-radio" type="radio" name="lecture_id" id="lec_{{ lec.id }}" value="{{ lec.id }}" required {% if lec.is_full %}disabled{% endif %}>
+                        <label class="form-check-label ms-2 d-block w-100" for="lec_{{ lec.id }}">
+                          <div class="d-flex justify-content-between">
+                            <span class="fw-bold">{{ lec.section_name }}</span>
+                            <span class="badge {{ 'bg-danger' if lec.is_full else 'bg-success' }} rounded-1">{{ lec.enrolled_count }}/{{ lec.max_capacity }}</span>
+                          </div>
+                          <div class="small text-muted mt-1">{{ lec.day }} | {{ lec.time }} | {{ lec.venue }}</div>
+                        </label>
+                      </div>
+                    {% endfor %}
+                  {% else %}
+                    <div class="text-muted small">No lectures available.</div>
+                  {% endif %}
+                </div>
+
+                <!-- Sub-sections Column -->
+                <div class="col-md-6 mb-3">
+                  <h6 class="border-bottom border-secondary pb-2 fw-bold text-success">2. Select {{ course.sub_component_type if course.sub_component_type else 'Sub-section' }}</h6>
+                  {% set subs = course.sub_sections %}
+                  {% if subs %}
+                    {% for sub in subs %}
+                      <div class="form-check border bg-white p-2 rounded-1 mb-2 sub-section-card" data-parent-id="{{ sub.parent_lecture_id }}" style="display: none;">
+                        <input class="form-check-input ms-1 sub-radio" type="radio" name="subsection_id" id="sub_{{ sub.id }}" value="{{ sub.id }}" required {% if sub.is_full %}disabled{% endif %}>
+                        <label class="form-check-label ms-2 d-block w-100" for="sub_{{ sub.id }}">
+                          <div class="d-flex justify-content-between">
+                            <span class="fw-bold">{{ sub.section_name }}</span>
+                            <span class="badge {{ 'bg-danger' if sub.is_full else 'bg-success' }} rounded-1">{{ sub.enrolled_count }}/{{ sub.max_capacity }}</span>
+                          </div>
+                          <div class="small text-muted mt-1">{{ sub.day }} | {{ sub.time }} | {{ sub.venue }}</div>
+                        </label>
+                      </div>
+                    {% endfor %}
+                    <div class="sub-placeholder text-muted small p-2">Please select a Lecture first to see available {{ course.sub_component_type }}s.</div>
+                  {% else %}
+                    <div class="text-muted small">No sub-sections available.</div>
+                  {% endif %}
+                </div>
+              </div>
+              
+              <div class="border-top pt-3 mt-2 text-end">
+                <button type="submit" class="btn btn-primary fw-bold px-4 rounded-1">Confirm Enrollment</button>
+              </div>
+            </form>
           {% endif %}
         </div>
       </div>
-
-      <!-- Sections table -->
-      {% if course.sections %}
-        <div class="table-responsive">
-          <table class="sections-table">
-            <thead>
-              <tr>
-                <th>Section</th>
-                <th>Schedule</th>
-                <th>Venue</th>
-                <th>Seats</th>
-                <th style="text-align:right; padding-right:1.25rem;">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for section in course.sections %}
-
-              {# Determine the seat badge class and label #}
-              {% if section.is_full %}
-                {% set badge_class = 'seat-badge-full' %}
-                {% set badge_icon  = 'bi-x-circle-fill' %}
-                {% set badge_label = 'FULL' %}
-              {% elif section.available_seats <= 5 %}
-                {% set badge_class = 'seat-badge-low' %}
-                {% set badge_icon  = 'bi-exclamation-circle-fill' %}
-                {% set badge_label = section.available_seats ~ ' left' %}
-              {% else %}
-                {% set badge_class = 'seat-badge-ok' %}
-                {% set badge_icon  = 'bi-check-circle-fill' %}
-                {% set badge_label = section.available_seats ~ ' / ' ~ section.max_capacity %}
-              {% endif %}
-
-              {# Is the student enrolled in this exact section? #}
-              {% set is_enrolled_here = section.id in enrolled_section_ids %}
-              {# Is the student in a DIFFERENT section of the same course? #}
-              {% set in_other_section = (course.id in enrolled_course_ids) and not is_enrolled_here %}
-
-              <tr class="{% if is_enrolled_here %}enrolled-row{% endif %}">
-
-                <!-- Section name -->
-                <td>
-                  <span class="section-name-pill">{{ section.section_name }}</span>
-                </td>
-
-                <!-- Schedule (day + time stacked) -->
-                <td>
-                  <div class="schedule-info">
-                    <span>
-                      <i class="bi bi-calendar-week-fill"></i>
-                      <strong>{{ section.day }}</strong>
-                    </span>
-                    <span>
-                      <i class="bi bi-clock-fill"></i>
-                      {{ section.time }}
-                    </span>
-                  </div>
-                </td>
-
-                <!-- Venue -->
-                <td>
-                  <span style="display:flex; align-items:center; gap:5px;">
-                    <i class="bi bi-geo-alt-fill text-muted" style="font-size:0.78rem;"></i>
-                    {{ section.venue }}
-                  </span>
-                </td>
-
-                <!-- Seats badge -->
-                <td>
-                  <span class="{{ badge_class }}">
-                    <i class="bi {{ badge_icon }}"></i>
-                    {{ badge_label }}
-                  </span>
-                </td>
-
-                <!-- Action button -->
-                <td style="text-align:right; padding-right:1.25rem;">
-                  {% if is_enrolled_here %}
-                    {# Student is in this section — show Drop button #}
-                    <form method="POST" action="{{ url_for('drop', section_id=section.id) }}"
-                          onsubmit="return confirm('Drop {{ section.section_name }} of {{ course.course_name }}?');">
-                      <button type="submit" class="btn-drop">
-                        <i class="bi bi-dash-circle me-1"></i>Drop
-                      </button>
-                    </form>
-
-                  {% elif in_other_section %}
-                    {# Student is in a different section of same course — disable enroll #}
-                    <button class="btn-enroll" disabled
-                            title="Drop your current section of this course first.">
-                      <i class="bi bi-slash-circle me-1"></i>Enrolled Elsewhere
-                    </button>
-
-                  {% elif section.is_full %}
-                    {# Section is full — disable enroll #}
-                    <button class="btn-enroll" disabled title="This section is full.">
-                      <i class="bi bi-x-circle me-1"></i>Section Full
-                    </button>
-
-                  {% else %}
-                    {# Available — show Enroll button #}
-                    <form method="POST" action="{{ url_for('enroll', section_id=section.id) }}">
-                      <button type="submit" class="btn-enroll">
-                        <i class="bi bi-plus-circle me-1"></i>Enroll
-                      </button>
-                    </form>
-                  {% endif %}
-                </td>
-
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-
-      {% else %}
-        <!-- No sections added to this course yet -->
-        <div class="empty-state" style="padding: 1.5rem;">
-          <i class="bi bi-calendar-x" style="font-size:1.5rem;"></i>
-          <p class="mb-0 mt-1" style="font-size:0.85rem;">No sections available for this course yet.</p>
-        </div>
-      {% endif %}
-
-    </div><!-- /.course-card -->
     {% endfor %}
-
   {% else %}
-    <!-- No courses in the system at all -->
     <div class="card">
-      <div class="card-body empty-state">
-        <i class="bi bi-journal-x d-block"></i>
-        <h5 class="mt-2 mb-1" style="font-family:'Poppins',sans-serif;">No Courses Available</h5>
-        <p class="mb-0" style="font-size:0.88rem;">
-          There are no courses in the system yet. Please check back later or contact the admin.
-        </p>
+      <div class="card-body text-center p-5 text-muted">
+        <h4>No Courses Available</h4>
       </div>
     </div>
   {% endif %}
+</div>
+{% endblock %}
 
-</div><!-- /.container -->
+{% block extra_scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const forms = document.querySelectorAll('.course-enroll-form');
+    
+    forms.forEach(form => {
+      const lectureRadios = form.querySelectorAll('.lecture-radio');
+      const subCards = form.querySelectorAll('.sub-section-card');
+      const placeholder = form.querySelector('.sub-placeholder');
+      const subRadios = form.querySelectorAll('.sub-radio');
+      
+      lectureRadios.forEach(radio => {
+        radio.addEventListener('change', function() {
+          const selectedLecId = this.value;
+          let hasVisibleSubs = false;
+          
+          // Clear sub-section selection
+          subRadios.forEach(r => r.checked = false);
+          
+          subCards.forEach(card => {
+            if (card.getAttribute('data-parent-id') === selectedLecId) {
+              card.style.display = 'block';
+              hasVisibleSubs = true;
+            } else {
+              card.style.display = 'none';
+            }
+          });
+          
+          if (placeholder) {
+            placeholder.style.display = hasVisibleSubs ? 'none' : 'block';
+            if (!hasVisibleSubs) {
+              placeholder.textContent = "No sub-sections available for this lecture.";
+            }
+          }
+        });
+      });
+    });
+  });
+</script>
 {% endblock %}
