@@ -1,0 +1,445 @@
+{% extends "base.html" %}
+
+{% block title %}Enrolled Students — {{ section.section_name }}{% endblock %}
+
+{% block extra_head %}
+<style>
+  /* -----------------------------------------------------------------------
+     Enrolled Students Page
+  ----------------------------------------------------------------------- */
+
+  .page-wrapper {
+    max-width: 860px;
+    margin: 0 auto;
+    padding-bottom: 3rem;
+  }
+
+  /* ── Section info card at top ── */
+  .section-info-card {
+    background: linear-gradient(135deg, var(--mmu-navy) 0%, #1a3a6e 100%);
+    border-radius: 14px;
+    padding: 1.4rem 1.75rem;
+    color: #fff;
+    margin-bottom: 1.75rem;
+    box-shadow: 0 4px 20px rgba(10,35,66,0.18);
+  }
+
+  .section-info-card .course-code-tag {
+    display: inline-block;
+    background: rgba(255,255,255,0.15);
+    border-radius: 5px;
+    padding: 1px 9px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+
+  .section-info-card h2 {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+  }
+
+  .section-info-card .section-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(240,165,0,0.20);
+    color: var(--mmu-gold);
+    border: 1px solid rgba(240,165,0,0.35);
+    border-radius: 6px;
+    padding: 2px 10px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    margin-right: 0.5rem;
+  }
+
+  /* Schedule meta row */
+  .section-meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-top: 0.9rem;
+  }
+
+  .section-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.82rem;
+    color: rgba(255,255,255,0.75);
+  }
+
+  .section-meta-item i { font-size: 0.78rem; }
+
+  /* Capacity progress bar in the info card */
+  .cap-progress-wrap {
+    margin-top: 1rem;
+  }
+
+  .cap-progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.78rem;
+    color: rgba(255,255,255,0.65);
+    margin-bottom: 5px;
+  }
+
+  .cap-progress-label strong {
+    color: #fff;
+    font-family: 'Poppins', sans-serif;
+  }
+
+  .cap-bar {
+    height: 8px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .cap-bar-fill {
+    height: 100%;
+    border-radius: 10px;
+    background: linear-gradient(90deg, #34d399, #10b981);
+    transition: width 0.5s ease;
+  }
+
+  .cap-bar-fill.mid  { background: linear-gradient(90deg, #fbbf24, #f59e0b); }
+  .cap-bar-fill.high { background: linear-gradient(90deg, #f87171, #ef4444); }
+
+  /* ── Students table ── */
+  .students-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.875rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.05);
+  }
+
+  .students-table thead tr {
+    background: linear-gradient(135deg, var(--mmu-navy), #1a3a6e);
+  }
+
+  .students-table thead th {
+    color: rgba(255,255,255,0.80);
+    font-family: 'Poppins', sans-serif;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0.8rem 1.1rem;
+    border: none;
+    white-space: nowrap;
+  }
+
+  .students-table tbody tr {
+    background: #fff;
+    transition: background 0.14s;
+  }
+
+  .students-table tbody tr:hover {
+    background: #f8fafc;
+  }
+
+  .students-table tbody tr:not(:last-child) td {
+    border-bottom: 1px solid #f1f5f9;
+  }
+
+  .students-table tbody td {
+    padding: 0.85rem 1.1rem;
+    vertical-align: middle;
+    color: var(--mmu-text);
+  }
+
+  /* Row number */
+  .row-num {
+    font-size: 0.75rem;
+    color: var(--mmu-muted);
+    font-weight: 600;
+    width: 40px;
+    text-align: center;
+  }
+
+  /* Avatar circle (initials) */
+  .student-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--mmu-blue), #60a5fa);
+    color: #fff;
+    font-family: 'Poppins', sans-serif;
+    font-weight: 700;
+    font-size: 0.8rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    text-transform: uppercase;
+  }
+
+  /* Subtle colour variety for avatars based on name initial */
+  .av-a, .av-b, .av-c { background: linear-gradient(135deg, #1a56db, #60a5fa); }
+  .av-d, .av-e, .av-f { background: linear-gradient(135deg, #065f46, #34d399); }
+  .av-g, .av-h, .av-i { background: linear-gradient(135deg, #7c3aed, #a78bfa); }
+  .av-j, .av-k, .av-l { background: linear-gradient(135deg, #be185d, #f472b6); }
+  .av-m, .av-n, .av-o { background: linear-gradient(135deg, #0a2342, #1a3a6e); }
+  .av-p, .av-q, .av-r { background: linear-gradient(135deg, #92400e, #f59e0b); }
+  .av-s, .av-t, .av-u { background: linear-gradient(135deg, #065f46, #10b981); }
+  .av-v, .av-w, .av-x, .av-y, .av-z { background: linear-gradient(135deg, #9a3412, #fb923c); }
+
+  .student-name-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .student-name-text {
+    font-weight: 600;
+    color: var(--mmu-navy);
+  }
+
+  .student-username {
+    font-size: 0.75rem;
+    color: var(--mmu-muted);
+    font-family: 'Courier New', monospace;
+    display: block;
+  }
+
+  /* Enrolled date */
+  .enrolled-date {
+    font-size: 0.8rem;
+    color: var(--mmu-muted);
+  }
+
+  .enrolled-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #d1fae5;
+    color: #065f46;
+    border-radius: 6px;
+    padding: 2px 9px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  /* Table footer */
+  .students-table tfoot td {
+    background: #f8fafc;
+    padding: 0.7rem 1.1rem;
+    font-size: 0.78rem;
+    color: var(--mmu-muted);
+    border-top: 1px solid #e2e8f0;
+  }
+
+  /* Empty state */
+  .empty-students {
+    text-align: center;
+    padding: 4rem 1rem;
+    color: var(--mmu-muted);
+  }
+
+  .empty-students i {
+    font-size: 3.5rem;
+    opacity: 0.25;
+    display: block;
+    margin-bottom: 1rem;
+  }
+
+  /* Print helper */
+  @media print {
+    .navbar-mmu, footer, .btn, a.btn-cancel { display: none !important; }
+    .section-info-card { background: #0a2342 !important; -webkit-print-color-adjust: exact; }
+  }
+</style>
+{% endblock %}
+
+
+{% block content %}
+
+<!-- ── Page Header ── -->
+<div class="page-header">
+  <div class="container">
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+      <div>
+        <h1 class="mb-1">
+          <i class="bi bi-people-fill me-2"></i>Enrolled Students
+        </h1>
+        <p>View all students registered in this section.</p>
+      </div>
+      <div class="d-flex gap-2 align-self-center">
+        <button onclick="window.print()" class="btn btn-light btn-sm fw-semibold">
+          <i class="bi bi-printer me-1"></i>Print List
+        </button>
+        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-light btn-sm fw-semibold">
+          <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+<div class="page-wrapper">
+
+  <!-- ── Section Info Card ── -->
+  {% set pct = ((section.enrolled_count / section.max_capacity) * 100) | round(0) | int %}
+  {% if pct >= 90 %}{% set bar_class = 'high' %}
+  {% elif pct >= 50 %}{% set bar_class = 'mid' %}
+  {% else %}{% set bar_class = '' %}{% endif %}
+
+  <div class="section-info-card">
+    <span class="course-code-tag">{{ section.course.course_code }}</span>
+    <h2>{{ section.course.course_name }}</h2>
+
+    <div>
+      <span class="section-tag">
+        <i class="bi bi-diagram-3-fill"></i>{{ section.section_name }}
+      </span>
+      <span style="font-size:0.8rem; color:rgba(255,255,255,0.60);">
+        {{ section.course.credit_hours }} Credit Hour{{ 's' if section.course.credit_hours > 1 else '' }}
+      </span>
+    </div>
+
+    <div class="section-meta-row">
+      <div class="section-meta-item">
+        <i class="bi bi-calendar-week-fill"></i>
+        <span>{{ section.day }}</span>
+      </div>
+      <div class="section-meta-item">
+        <i class="bi bi-clock-fill"></i>
+        <span>{{ section.time }}</span>
+      </div>
+      <div class="section-meta-item">
+        <i class="bi bi-geo-alt-fill"></i>
+        <span>{{ section.venue }}</span>
+      </div>
+      <div class="section-meta-item">
+        <i class="bi bi-people-fill"></i>
+        <span>{{ section.enrolled_count }} / {{ section.max_capacity }} students</span>
+      </div>
+    </div>
+
+    <!-- Capacity bar -->
+    <div class="cap-progress-wrap">
+      <div class="cap-progress-label">
+        <span>Capacity Used</span>
+        <strong>{{ pct }}%</strong>
+      </div>
+      <div class="cap-bar">
+        <div class="cap-bar-fill {{ bar_class }}" style="width: {{ pct }}%;"></div>
+      </div>
+    </div>
+  </div><!-- /.section-info-card -->
+
+  <!-- ── Students Table ── -->
+  {% if enrollments %}
+
+    <div class="table-responsive">
+      <table class="students-table">
+        <thead>
+          <tr>
+            <th class="text-center">#</th>
+            <th><i class="bi bi-person me-1"></i>Student Name</th>
+            <th><i class="bi bi-calendar-check me-1"></i>Enrolled On</th>
+            <th class="text-center"><i class="bi bi-patch-check me-1"></i>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for enrollment in enrollments %}
+          {% set student = enrollment.student %}
+
+          {# Extract first letter of name for avatar colour class #}
+          {% set initial = student.full_name[0].lower() if student.full_name else 'x' %}
+
+          <tr>
+            <!-- Row number -->
+            <td class="row-num">{{ loop.index }}</td>
+
+            <!-- Student name + username -->
+            <td>
+              <div class="student-name-cell">
+                <div class="student-avatar av-{{ initial }}">
+                  {{ student.full_name[:2] if student.full_name else '??' }}
+                </div>
+                <div>
+                  <span class="student-name-text">{{ student.full_name }}</span>
+                  <span class="student-username">@{{ student.username }}</span>
+                </div>
+              </div>
+            </td>
+
+            <!-- Enrolled date + time -->
+            <td>
+              <div class="enrolled-date">
+                <div style="font-weight:500; color:var(--mmu-text);">
+                  {{ enrollment.enrolled_at.strftime('%d %B %Y') }}
+                </div>
+                <div style="font-size:0.73rem;">
+                  {{ enrollment.enrolled_at.strftime('%I:%M %p') }}
+                </div>
+              </div>
+            </td>
+
+            <!-- Status badge -->
+            <td class="text-center">
+              <span class="enrolled-badge">
+                <i class="bi bi-patch-check-fill"></i>Enrolled
+              </span>
+            </td>
+
+          </tr>
+          {% endfor %}
+        </tbody>
+
+        <!-- Footer summary -->
+        <tfoot>
+          <tr>
+            <td colspan="2">
+              <i class="bi bi-info-circle me-1"></i>
+              {{ enrollments | length }} student{{ 's' if enrollments|length != 1 else '' }} enrolled
+              &nbsp;&bull;&nbsp;
+              {{ section.available_seats }} seat{{ 's' if section.available_seats != 1 else '' }} remaining
+            </td>
+            <td colspan="2" style="text-align:right;">
+              {% if section.is_full %}
+                <span style="color:#991b1b; font-weight:600; font-size:0.78rem;">
+                  <i class="bi bi-x-circle-fill me-1"></i>Section Full
+                </span>
+              {% else %}
+                <span style="color:#065f46; font-weight:600; font-size:0.78rem;">
+                  <i class="bi bi-check-circle-fill me-1"></i>Accepting Enrollments
+                </span>
+              {% endif %}
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+  {% else %}
+    <!-- Empty state — no students enrolled yet -->
+    <div class="card">
+      <div class="card-body empty-students">
+        <i class="bi bi-people"></i>
+        <h5 style="font-family:'Poppins',sans-serif; color:#334155;">No Students Enrolled Yet</h5>
+        <p style="font-size:0.9rem; margin-bottom:1.25rem;">
+          No students have enrolled in <strong>{{ section.section_name }}</strong> of
+          <strong>{{ section.course.course_name }}</strong> yet.
+        </p>
+        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-mmu-primary px-4">
+          <i class="bi bi-arrow-left me-2"></i>Back to Dashboard
+        </a>
+      </div>
+    </div>
+  {% endif %}
+
+</div><!-- /.page-wrapper -->
+</div><!-- /.container -->
+{% endblock %}

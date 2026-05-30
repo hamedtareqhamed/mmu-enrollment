@@ -1,0 +1,439 @@
+{% extends "base.html" %}
+
+{% block title %}Add New Course{% endblock %}
+
+{% block extra_head %}
+<style>
+  /* -----------------------------------------------------------------------
+     Add Course Form Page
+  ----------------------------------------------------------------------- */
+
+  .form-page-wrapper {
+    max-width: 780px;
+    margin: 0 auto;
+    padding-bottom: 3rem;
+  }
+
+  /* ── Form card ── */
+  .form-card {
+    background: #fff;
+    border: 1px solid var(--mmu-border);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(10,35,66,0.08);
+  }
+
+  /* Section divider header inside the card */
+  .form-section-header {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-family: 'Poppins', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0.9rem 1.5rem;
+    border-bottom: 1px solid #f1f5f9;
+    margin: 0 -1.5rem 1.25rem;
+  }
+
+  .form-section-header.course-section {
+    color: var(--mmu-blue);
+    background: #f0f5ff;
+    border-top: 1px solid #e0e7ff;
+  }
+
+  .form-section-header.schedule-section {
+    color: #065f46;
+    background: #f0fdf4;
+    border-top: 1px solid #bbf7d0;
+    margin-top: 1.75rem;
+  }
+
+  /* ── Form controls ── */
+  .form-label {
+    font-size: 0.83rem;
+    font-weight: 600;
+    color: var(--mmu-navy);
+    margin-bottom: 0.35rem;
+  }
+
+  .form-label .required-star {
+    color: var(--mmu-danger);
+    margin-left: 2px;
+  }
+
+  .form-control,
+  .form-select {
+    border-radius: 9px;
+    border: 1.5px solid #cbd5e1;
+    font-size: 0.9rem;
+    padding: 0.55rem 0.9rem;
+    color: var(--mmu-text);
+    transition: border-color 0.18s, box-shadow 0.18s;
+  }
+
+  .form-control:focus,
+  .form-select:focus {
+    border-color: var(--mmu-blue);
+    box-shadow: 0 0 0 3px rgba(26,86,219,0.12);
+    outline: none;
+  }
+
+  textarea.form-control {
+    resize: vertical;
+    min-height: 90px;
+  }
+
+  .form-text {
+    font-size: 0.75rem;
+    color: var(--mmu-muted);
+    margin-top: 0.3rem;
+  }
+
+  /* ── Two-column grid for form rows ── */
+  .form-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+
+  @media (max-width: 576px) {
+    .form-grid-2 { grid-template-columns: 1fr; }
+  }
+
+  /* ── Capacity note box ── */
+  .capacity-note {
+    background: #fef9c3;
+    border: 1px solid #fde68a;
+    border-radius: 9px;
+    padding: 0.7rem 1rem;
+    font-size: 0.8rem;
+    color: #92400e;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .capacity-note i { flex-shrink: 0; margin-top: 1px; }
+
+  /* ── Submit / Cancel buttons ── */
+  .form-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid #f1f5f9;
+    margin-top: 1.25rem;
+    flex-wrap: wrap;
+  }
+
+  .btn-submit {
+    background: linear-gradient(135deg, var(--mmu-blue), #1648c0);
+    border: none;
+    color: #fff;
+    font-family: 'Poppins', sans-serif;
+    font-weight: 600;
+    font-size: 0.9rem;
+    border-radius: 9px;
+    padding: 0.6rem 1.75rem;
+    transition: opacity 0.18s, transform 0.12s, box-shadow 0.18s;
+    box-shadow: 0 3px 12px rgba(26,86,219,0.28);
+    cursor: pointer;
+  }
+
+  .btn-submit:hover {
+    opacity: 0.92;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(26,86,219,0.33);
+  }
+
+  .btn-cancel {
+    font-size: 0.88rem;
+    font-weight: 600;
+    border-radius: 9px;
+    padding: 0.6rem 1.25rem;
+    border: 1.5px solid var(--mmu-border);
+    background: transparent;
+    color: var(--mmu-muted);
+    text-decoration: none;
+    transition: background 0.18s, color 0.18s;
+  }
+
+  .btn-cancel:hover {
+    background: #f1f5f9;
+    color: var(--mmu-text);
+  }
+
+  /* ── Day-of-week quick-select buttons ── */
+  .day-btn-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-bottom: 0.3rem;
+  }
+
+  .day-btn {
+    font-size: 0.78rem;
+    font-weight: 600;
+    border-radius: 7px;
+    padding: 4px 12px;
+    border: 1.5px solid #cbd5e1;
+    background: #fff;
+    color: var(--mmu-muted);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .day-btn:hover        { border-color: var(--mmu-blue); color: var(--mmu-blue); }
+  .day-btn.selected     { background: var(--mmu-blue); border-color: var(--mmu-blue); color: #fff; }
+</style>
+{% endblock %}
+
+
+{% block content %}
+
+<!-- ── Page Header ── -->
+<div class="page-header">
+  <div class="container">
+    <h1 class="mb-1"><i class="bi bi-plus-circle-fill me-2"></i>Add New Course</h1>
+    <p>Create a new course and set up its first class section in one step.</p>
+  </div>
+</div>
+
+<div class="container">
+<div class="form-page-wrapper">
+
+  <form method="POST" action="{{ url_for('add_course') }}" novalidate>
+    <div class="form-card p-4">
+
+      <!-- ══════════════════════════════════════
+           PART 1 — Course Details
+      ══════════════════════════════════════ -->
+      <div class="form-section-header course-section">
+        <i class="bi bi-journal-bookmark-fill"></i>
+        Course Information
+      </div>
+
+      <!-- Course Code + Credit Hours (2-col) -->
+      <div class="form-grid-2 mb-3">
+        <div>
+          <label for="course_code" class="form-label">
+            Course Code <span class="required-star">*</span>
+          </label>
+          <input
+            type="text"
+            class="form-control text-uppercase"
+            id="course_code"
+            name="course_code"
+            placeholder="e.g. CS101"
+            maxlength="20"
+            value="{{ request.form.get('course_code', '') }}"
+            required
+          />
+          <div class="form-text">Must be unique across all courses.</div>
+        </div>
+
+        <div>
+          <label for="credit_hours" class="form-label">
+            Credit Hours <span class="required-star">*</span>
+          </label>
+          <select class="form-select" id="credit_hours" name="credit_hours" required>
+            {% for h in [1, 2, 3, 4] %}
+              <option value="{{ h }}"
+                {{ 'selected' if request.form.get('credit_hours', '3') == h|string }}>
+                {{ h }} Credit Hour{{ 's' if h > 1 else '' }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <!-- Course Name -->
+      <div class="mb-3">
+        <label for="course_name" class="form-label">
+          Course Name <span class="required-star">*</span>
+        </label>
+        <input
+          type="text"
+          class="form-control"
+          id="course_name"
+          name="course_name"
+          placeholder="e.g. Introduction to Programming"
+          maxlength="150"
+          value="{{ request.form.get('course_name', '') }}"
+          required
+        />
+      </div>
+
+      <!-- Description (optional) -->
+      <div class="mb-1">
+        <label for="description" class="form-label">
+          Description <span style="font-weight:400; color:var(--mmu-muted);">(Optional)</span>
+        </label>
+        <textarea
+          class="form-control"
+          id="description"
+          name="description"
+          placeholder="Brief description of what this course covers…"
+          maxlength="500"
+          rows="3"
+        >{{ request.form.get('description', '') }}</textarea>
+        <div class="form-text">Max 500 characters. Shown to students in the course catalog.</div>
+      </div>
+
+      <!-- ══════════════════════════════════════
+           PART 2 — First Section Details
+      ══════════════════════════════════════ -->
+      <div class="form-section-header schedule-section">
+        <i class="bi bi-calendar3"></i>
+        First Section Schedule
+      </div>
+
+      <!-- Section Name + Max Capacity (2-col) -->
+      <div class="form-grid-2 mb-3">
+        <div>
+          <label for="section_name" class="form-label">
+            Section Name <span class="required-star">*</span>
+          </label>
+          <input
+            type="text"
+            class="form-control"
+            id="section_name"
+            name="section_name"
+            placeholder="e.g. Section A"
+            maxlength="20"
+            value="{{ request.form.get('section_name', 'Section A') }}"
+            required
+          />
+        </div>
+
+        <div>
+          <label for="max_capacity" class="form-label">
+            Max Capacity <span class="required-star">*</span>
+          </label>
+          <input
+            type="number"
+            class="form-control"
+            id="max_capacity"
+            name="max_capacity"
+            min="1"
+            max="30"
+            value="{{ request.form.get('max_capacity', '30') }}"
+            required
+          />
+          <div class="form-text">Maximum is 30 students per section.</div>
+        </div>
+      </div>
+
+      <!-- Day (quick-select buttons + hidden input) -->
+      <div class="mb-3">
+        <label class="form-label">
+          Day <span class="required-star">*</span>
+        </label>
+        <!-- Visual quick-select buttons — clicking one fills the hidden input -->
+        <div class="day-btn-group" id="dayBtnGroup">
+          {% set days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'] %}
+          {% set saved_day = request.form.get('day', '') %}
+          {% for d in days %}
+            <button type="button"
+                    class="day-btn {{ 'selected' if saved_day == d }}"
+                    onclick="selectDay('{{ d }}')">
+              {{ d }}
+            </button>
+          {% endfor %}
+        </div>
+        <!-- Hidden input carries the actual value submitted -->
+        <input type="hidden" id="day" name="day" value="{{ request.form.get('day', '') }}" required />
+        <div class="form-text">Click a day to select it.</div>
+      </div>
+
+      <!-- Time + Venue (2-col) -->
+      <div class="form-grid-2 mb-3">
+        <div>
+          <label for="time" class="form-label">
+            Time Slot <span class="required-star">*</span>
+          </label>
+          <input
+            type="text"
+            class="form-control"
+            id="time"
+            name="time"
+            placeholder="e.g. 10:00 - 12:00"
+            maxlength="30"
+            value="{{ request.form.get('time', '') }}"
+            required
+          />
+          <div class="form-text">Free-text format, e.g. "08:00 - 10:00".</div>
+        </div>
+
+        <div>
+          <label for="venue" class="form-label">
+            Venue <span class="required-star">*</span>
+          </label>
+          <input
+            type="text"
+            class="form-control"
+            id="venue"
+            name="venue"
+            placeholder="e.g. Lab A1 or Room B201"
+            maxlength="60"
+            value="{{ request.form.get('venue', '') }}"
+            required
+          />
+        </div>
+      </div>
+
+      <!-- Capacity reminder note -->
+      <div class="capacity-note mb-2">
+        <i class="bi bi-exclamation-triangle-fill"></i>
+        <span>
+          <strong>Policy:</strong> Each section has a maximum capacity of <strong>30 students</strong>.
+          The system will automatically block enrollment once a section is full.
+        </span>
+      </div>
+
+      <!-- ── Form Actions ── -->
+      <div class="form-actions">
+        <button type="submit" class="btn-submit">
+          <i class="bi bi-plus-circle-fill me-2"></i>Create Course &amp; Section
+        </button>
+        <a href="{{ url_for('admin_dashboard') }}" class="btn-cancel">
+          Cancel
+        </a>
+      </div>
+
+    </div><!-- /.form-card -->
+  </form>
+
+</div><!-- /.form-page-wrapper -->
+</div><!-- /.container -->
+{% endblock %}
+
+
+{% block extra_scripts %}
+<script>
+  /**
+   * Day quick-select: clicking a day button marks it as selected
+   * and updates the hidden <input name="day"> value.
+   */
+  function selectDay(day) {
+    // Update all button states
+    document.querySelectorAll('.day-btn').forEach(btn => {
+      btn.classList.toggle('selected', btn.textContent.trim() === day);
+    });
+    // Write value into the hidden field
+    document.getElementById('day').value = day;
+  }
+
+  /**
+   * Auto-uppercase the course code field as the user types.
+   */
+  document.getElementById('course_code').addEventListener('input', function () {
+    const pos = this.selectionStart;
+    this.value = this.value.toUpperCase();
+    this.setSelectionRange(pos, pos);
+  });
+</script>
+{% endblock %}

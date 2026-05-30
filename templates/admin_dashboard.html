@@ -1,0 +1,583 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block extra_head %}
+<style>
+  /* -----------------------------------------------------------------------
+     Admin Dashboard
+  ----------------------------------------------------------------------- */
+
+  /* ── Top KPI strip ── */
+  .kpi-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .kpi-card {
+    flex: 1;
+    min-width: 170px;
+    background: #fff;
+    border: 1px solid var(--mmu-border);
+    border-radius: 14px;
+    padding: 1.1rem 1.4rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  }
+
+  .kpi-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    flex-shrink: 0;
+  }
+
+  .kpi-value {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--mmu-navy);
+    line-height: 1;
+  }
+
+  .kpi-label {
+    font-size: 0.75rem;
+    color: var(--mmu-muted);
+    margin-top: 3px;
+    font-weight: 500;
+  }
+
+  /* ── Section toolbar (title + Add Course button) ── */
+  .section-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .section-toolbar h2 {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--mmu-navy);
+    margin: 0;
+  }
+
+  /* ── Course accordion cards ── */
+  .course-admin-card {
+    background: #fff;
+    border: 1px solid var(--mmu-border);
+    border-radius: 14px;
+    margin-bottom: 1rem;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    transition: box-shadow 0.2s;
+  }
+
+  .course-admin-card:hover {
+    box-shadow: 0 4px 18px rgba(10,35,66,0.10);
+  }
+
+  /* Left accent bar */
+  .course-admin-card .card-accent {
+    height: 4px;
+    width: 100%;
+  }
+
+  .accent-1 { background: linear-gradient(90deg, #1a56db, #60a5fa); }
+  .accent-2 { background: linear-gradient(90deg, #0a2342, #1a56db); }
+  .accent-3 { background: linear-gradient(90deg, #f0a500, #fbbf24); }
+  .accent-4 { background: linear-gradient(90deg, #065f46, #34d399); }
+  .accent-5 { background: linear-gradient(90deg, #7c3aed, #a78bfa); }
+  .accent-6 { background: linear-gradient(90deg, #be185d, #f472b6); }
+
+  .course-admin-header {
+    padding: 1rem 1.25rem;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .course-admin-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .course-admin-title {
+    font-family: 'Poppins', sans-serif;
+    font-size: 0.98rem;
+    font-weight: 700;
+    color: var(--mmu-navy);
+    margin: 0;
+  }
+
+  .course-admin-sub {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .code-badge {
+    background: var(--mmu-blue-lt);
+    color: var(--mmu-blue);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    border-radius: 5px;
+    padding: 1px 7px;
+  }
+
+  .credit-tag {
+    font-size: 0.75rem;
+    color: var(--mmu-muted);
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+
+  .course-admin-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+  }
+
+  /* ── Sections table inside each course card ── */
+  .admin-sections-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+  }
+
+  .admin-sections-table thead tr {
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+  }
+
+  .admin-sections-table thead th {
+    padding: 0.55rem 1.1rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--mmu-muted);
+    border-bottom: 1px solid #e2e8f0;
+    white-space: nowrap;
+  }
+
+  .admin-sections-table tbody td {
+    padding: 0.75rem 1.1rem;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: middle;
+  }
+
+  .admin-sections-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  .admin-sections-table tbody tr:hover {
+    background: #fafbfc;
+  }
+
+  /* ── Enrollment progress bar ── */
+  .enroll-progress-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    min-width: 160px;
+  }
+
+  .enroll-bar {
+    flex: 1;
+    height: 7px;
+    background: #e2e8f0;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .enroll-bar-fill {
+    height: 100%;
+    border-radius: 10px;
+    transition: width 0.4s ease;
+  }
+
+  .fill-ok   { background: linear-gradient(90deg, #34d399, #10b981); }
+  .fill-mid  { background: linear-gradient(90deg, #fbbf24, #f59e0b); }
+  .fill-high { background: linear-gradient(90deg, #f87171, #ef4444); }
+
+  .enroll-count-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--mmu-text);
+    white-space: nowrap;
+  }
+
+  /* ── Capacity badge ── */
+  .cap-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 2px 9px;
+    border-radius: 20px;
+  }
+
+  .cap-ok   { background:#d1fae5; color:#065f46; border:1px solid #a7f3d0; }
+  .cap-mid  { background:#fef3c7; color:#92400e; border:1px solid #fde68a; }
+  .cap-full { background:#fee2e2; color:#991b1b; border:1px solid #fca5a5; }
+
+  /* ── View Students button ── */
+  .btn-view-students {
+    font-size: 0.78rem;
+    font-weight: 600;
+    border-radius: 7px;
+    padding: 4px 12px;
+    border: 1.5px solid #1a56db;
+    color: #1a56db;
+    background: transparent;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: background 0.18s, color 0.18s;
+    white-space: nowrap;
+  }
+
+  .btn-view-students:hover {
+    background: #1a56db;
+    color: #fff;
+  }
+
+  /* ── Add Section button inside card ── */
+  .btn-add-section {
+    font-size: 0.78rem;
+    font-weight: 600;
+    border-radius: 7px;
+    padding: 4px 12px;
+    border: 1.5px solid #065f46;
+    color: #065f46;
+    background: transparent;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: background 0.18s, color 0.18s;
+    white-space: nowrap;
+  }
+
+  .btn-add-section:hover {
+    background: #065f46;
+    color: #fff;
+  }
+
+  /* ── Empty course state ── */
+  .no-sections-row td {
+    text-align: center;
+    color: var(--mmu-muted);
+    font-size: 0.82rem;
+    padding: 1.25rem;
+    font-style: italic;
+  }
+
+  /* ── No courses empty state ── */
+  .empty-admin {
+    text-align: center;
+    padding: 4rem 1rem;
+    color: var(--mmu-muted);
+  }
+
+  .empty-admin i {
+    font-size: 3.5rem;
+    opacity: 0.25;
+    display: block;
+    margin-bottom: 1rem;
+  }
+</style>
+{% endblock %}
+
+
+{% block content %}
+
+<!-- ── Page Header ── -->
+<div class="page-header">
+  <div class="container">
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+      <div>
+        <h1 class="mb-1">
+          <i class="bi bi-speedometer2 me-2"></i>Admin Dashboard
+        </h1>
+        <p>Manage courses, sections, and monitor student enrollment across the system.</p>
+      </div>
+      <a href="{{ url_for('add_course') }}" class="btn btn-light btn-sm fw-semibold align-self-center">
+        <i class="bi bi-plus-circle-fill me-1"></i>Add New Course
+      </a>
+    </div>
+  </div>
+</div>
+
+<div class="container pb-5">
+
+  {# ── Pre-compute system-wide totals ── #}
+  {% set total_sections   = namespace(value=0) %}
+  {% set total_enrolled   = namespace(value=0) %}
+  {% set total_capacity   = namespace(value=0) %}
+
+  {% for course in courses %}
+    {% for section in course.sections %}
+      {% set total_sections.value  = total_sections.value  + 1 %}
+      {% set total_enrolled.value  = total_enrolled.value  + section.enrolled_count %}
+      {% set total_capacity.value  = total_capacity.value  + section.max_capacity %}
+    {% endfor %}
+  {% endfor %}
+
+  <!-- ── KPI Strip ── -->
+  <div class="kpi-strip">
+
+    <div class="kpi-card">
+      <div class="kpi-icon" style="background:#dbeafe; color:#1e40af;">
+        <i class="bi bi-journal-bookmark-fill"></i>
+      </div>
+      <div>
+        <div class="kpi-value">{{ courses | length }}</div>
+        <div class="kpi-label">Total Courses</div>
+      </div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-icon" style="background:#ede9fe; color:#5b21b6;">
+        <i class="bi bi-diagram-3-fill"></i>
+      </div>
+      <div>
+        <div class="kpi-value">{{ total_sections.value }}</div>
+        <div class="kpi-label">Total Sections</div>
+      </div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-icon" style="background:#dcfce7; color:#065f46;">
+        <i class="bi bi-people-fill"></i>
+      </div>
+      <div>
+        <div class="kpi-value">{{ total_enrolled.value }}</div>
+        <div class="kpi-label">Students Enrolled</div>
+      </div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-icon" style="background:#fef3c7; color:#92400e;">
+        <i class="bi bi-bar-chart-fill"></i>
+      </div>
+      <div>
+        <div class="kpi-value">
+          {% if total_capacity.value > 0 %}
+            {{ ((total_enrolled.value / total_capacity.value) * 100) | round(0) | int }}%
+          {% else %}
+            —
+          {% endif %}
+        </div>
+        <div class="kpi-label">Overall Occupancy</div>
+      </div>
+    </div>
+
+  </div><!-- /.kpi-strip -->
+
+  <!-- ── Course List ── -->
+  <div class="section-toolbar">
+    <h2><i class="bi bi-collection-fill me-2 text-mmu-blue"></i>All Courses &amp; Sections</h2>
+    <a href="{{ url_for('add_course') }}" class="btn btn-mmu-primary btn-sm">
+      <i class="bi bi-plus-lg me-1"></i>Add Course
+    </a>
+  </div>
+
+  {% if courses %}
+    {% for course in courses %}
+    {% set accent_class = 'accent-' ~ ((loop.index0 % 6) + 1) %}
+
+    <div class="course-admin-card">
+
+      <!-- Accent bar -->
+      <div class="card-accent {{ accent_class }}"></div>
+
+      <!-- Course header row -->
+      <div class="course-admin-header">
+        <div class="course-admin-meta">
+          <div class="course-admin-sub">
+            <span class="code-badge">{{ course.course_code }}</span>
+            <span class="credit-tag">
+              <i class="bi bi-star-fill" style="color:var(--mmu-gold);"></i>
+              {{ course.credit_hours }} Credit Hours
+            </span>
+          </div>
+          <h3 class="course-admin-title">{{ course.course_name }}</h3>
+          {% if course.description %}
+            <p style="font-size:0.8rem; color:var(--mmu-muted); margin:0;">{{ course.description }}</p>
+          {% endif %}
+        </div>
+
+        <div class="course-admin-actions">
+          <a href="{{ url_for('add_section', course_id=course.id) }}" class="btn-add-section">
+            <i class="bi bi-plus-circle"></i>Add Section
+          </a>
+        </div>
+      </div>
+
+      <!-- Sections table -->
+      {% if course.sections %}
+        <div class="table-responsive">
+          <table class="admin-sections-table">
+            <thead>
+              <tr>
+                <th>Section</th>
+                <th>Day</th>
+                <th>Time</th>
+                <th>Venue</th>
+                <th>Enrollment</th>
+                <th>Status</th>
+                <th style="text-align:right; padding-right:1.25rem;">Students</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for section in course.sections %}
+
+              {# Compute fill ratio for progress bar #}
+              {% set pct = ((section.enrolled_count / section.max_capacity) * 100) | round(0) | int %}
+
+              {% if pct >= 90 %}
+                {% set fill_class = 'fill-high' %}
+                {% set cap_class  = 'cap-full'  %}
+                {% set cap_icon   = 'bi-x-circle-fill' %}
+                {% set cap_label  = 'Full' if section.is_full else 'Almost Full' %}
+              {% elif pct >= 50 %}
+                {% set fill_class = 'fill-mid' %}
+                {% set cap_class  = 'cap-mid'  %}
+                {% set cap_icon   = 'bi-exclamation-circle-fill' %}
+                {% set cap_label  = 'Filling Up' %}
+              {% else %}
+                {% set fill_class = 'fill-ok' %}
+                {% set cap_class  = 'cap-ok'  %}
+                {% set cap_icon   = 'bi-check-circle-fill' %}
+                {% set cap_label  = 'Available' %}
+              {% endif %}
+
+              <tr>
+                <!-- Section name -->
+                <td>
+                  <span style="background:#f1f5f9; color:#334155; border-radius:6px;
+                               padding:2px 9px; font-size:0.78rem; font-weight:600;">
+                    {{ section.section_name }}
+                  </span>
+                </td>
+
+                <!-- Day -->
+                <td style="font-weight:500;">{{ section.day }}</td>
+
+                <!-- Time -->
+                <td>
+                  <span style="display:flex; align-items:center; gap:5px;
+                               font-size:0.83rem; color:var(--mmu-muted);">
+                    <i class="bi bi-clock"></i>{{ section.time }}
+                  </span>
+                </td>
+
+                <!-- Venue -->
+                <td>
+                  <span style="display:flex; align-items:center; gap:5px; font-size:0.83rem;">
+                    <i class="bi bi-geo-alt-fill" style="color:var(--mmu-muted);"></i>
+                    {{ section.venue }}
+                  </span>
+                </td>
+
+                <!-- Enrollment progress bar -->
+                <td>
+                  <div class="enroll-progress-wrap">
+                    <div class="enroll-bar">
+                      <div class="enroll-bar-fill {{ fill_class }}"
+                           style="width: {{ pct }}%;"></div>
+                    </div>
+                    <span class="enroll-count-label">
+                      {{ section.enrolled_count }} / {{ section.max_capacity }}
+                    </span>
+                  </div>
+                </td>
+
+                <!-- Status badge -->
+                <td>
+                  <span class="cap-badge {{ cap_class }}">
+                    <i class="bi {{ cap_icon }}"></i>{{ cap_label }}
+                  </span>
+                </td>
+
+                <!-- View Students link -->
+                <td style="text-align:right; padding-right:1.25rem;">
+                  <a href="{{ url_for('view_enrolled_students', section_id=section.id) }}"
+                     class="btn-view-students">
+                    <i class="bi bi-people-fill"></i>
+                    View Students
+                    {% if section.enrolled_count > 0 %}
+                      <span style="background:var(--mmu-blue); color:#fff; border-radius:10px;
+                                   padding:0 6px; font-size:0.68rem; margin-left:2px;">
+                        {{ section.enrolled_count }}
+                      </span>
+                    {% endif %}
+                  </a>
+                </td>
+
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+      {% else %}
+        <!-- No sections yet for this course -->
+        <table class="admin-sections-table">
+          <tbody>
+            <tr class="no-sections-row">
+              <td>
+                <i class="bi bi-info-circle me-1"></i>
+                No sections added yet.
+                <a href="{{ url_for('add_section', course_id=course.id) }}"
+                   style="color:var(--mmu-blue); font-weight:600;">Add the first section →</a>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      {% endif %}
+
+    </div><!-- /.course-admin-card -->
+    {% endfor %}
+
+  {% else %}
+    <!-- Empty state — no courses -->
+    <div class="card">
+      <div class="card-body empty-admin">
+        <i class="bi bi-journal-x"></i>
+        <h5 style="font-family:'Poppins',sans-serif; color:#334155;">No Courses Yet</h5>
+        <p style="font-size:0.9rem; margin-bottom:1.25rem;">
+          The system has no courses. Add the first one to get started.
+        </p>
+        <a href="{{ url_for('add_course') }}" class="btn btn-mmu-primary px-4">
+          <i class="bi bi-plus-circle me-2"></i>Add First Course
+        </a>
+      </div>
+    </div>
+  {% endif %}
+
+</div><!-- /.container -->
+{% endblock %}
