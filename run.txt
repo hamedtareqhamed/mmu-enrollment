@@ -1,0 +1,48 @@
+MMU STUDENT ENROLLMENT SYSTEM - RUN INSTRUCTIONS
+================================================
+
+Please follow these exact steps to run the application on your computer:
+
+1. OPEN TERMINAL / COMMAND PROMPT
+   Navigate to the project directory:
+   cd mmu-enrollment
+
+2. CREATE A VIRTUAL ENVIRONMENT (Recommended)
+   Windows: python -m venv venv
+   Mac/Linux: python3 -m venv venv
+
+3. ACTIVATE THE VIRTUAL ENVIRONMENT
+   Windows CMD: venv\Scripts\activate
+   Windows PowerShell: venv\Scripts\Activate.ps1
+   Mac/Linux: source venv/bin/activate
+
+4. INSTALL DEPENDENCIES
+   pip install -r requirements.txt
+
+5. RUN THE APPLICATION
+   python app.py
+
+   (The database and test accounts will be created automatically).
+
+6. OPEN IN BROWSER
+   Go to: http://127.0.0.1:5000
+
+
+TEST ACCOUNTS:
+--------------
+Admin Login:
+  Username: admin
+  Password: admin123
+
+Student Logins:
+  Usernames: hamed, mohamed, muhannad, basil
+  Password: student123
+
+
+TROUBLESHOOTING:
+----------------
+If you encounter database errors (like "no such column"), it means you have an old database schema leftover.
+To fix this:
+1. Stop the server (Ctrl + C)
+2. Delete the file located at: instance/enrollment.db
+3. Run `python app.py` again to build a fresh database.
