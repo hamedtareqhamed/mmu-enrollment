@@ -102,10 +102,10 @@
                           {% endif %}
 
                           <td rowspan="{{ cell.span }}" class="p-1 border-end" style="height: 1px; vertical-align: top;">
-                            <div class="event-card {{ event_class }}">
+                            <div class="event-card h-100 p-2 rounded shadow-sm text-start d-flex flex-column lh-sm overflow-hidden {{ event_class }}" style="font-size: 0.85rem;">
                               <div class="tt-code fw-bold">{{ course.course_code }}</div>
                               <div class="tt-name fw-bold">{{ course.course_name }}</div>
-                              <div class="tt-section">{{ sec.section_name }}</div>
+                              <div class="tt-section me-1">{{ sec.section_name }}</div>
                               <div class="tt-type">({{ sec.section_type }})</div>
                               <div class="tt-venue mt-1 fw-bold"><i class="bi bi-geo-alt-fill me-1 d-print-none"></i>{{ sec.venue }}</div>
                             </div>
@@ -205,125 +205,36 @@
 </div>
 
 <style>
-  /* --- Event Card Styling (Apple/Google Calendar Style) --- */
-  #timetable-grid tbody tr {
-    height: 70px; /* Force rows to have a consistent height */
-  }
-  
-  .event-card {
-    border-radius: 6px;
-    padding: 8px 10px;
-    height: 100%; /* Fill the height of the td */
-    min-height: 100%;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-    text-align: left;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-    line-height: 1.3;
-    font-size: 0.85rem;
-    overflow: hidden;
-  }
-  
-  .event-lecture {
-    background-color: #e0f2fe; /* Light Blue */
-    border-left: 4px solid #0284c7; /* Dark Blue */
-    color: #0369a1;
-  }
-  
-  .event-tutorial {
-    background-color: #dcfce7; /* Light Green */
-    border-left: 4px solid #16a34a; /* Dark Green */
-    color: #15803d;
-  }
-  
-  .event-lab {
-    background-color: #fef9c3; /* Light Yellow */
-    border-left: 4px solid #ca8a04; /* Dark Yellow */
-    color: #854d0e;
-  }
+  /* --- Event Colors --- */
+  .event-lecture { background-color: #e0f2fe; border-left: 4px solid #0284c7; color: #0369a1; }
+  .event-tutorial { background-color: #dcfce7; border-left: 4px solid #16a34a; color: #15803d; }
+  .event-lab { background-color: #fef9c3; border-left: 4px solid #ca8a04; color: #854d0e; }
 
-  /* --- Toggle Visibility Logic --- */
-  /* By default, hide everything inside the event card */
-  .tt-code, .tt-name, .tt-section, .tt-type, .tt-venue {
-    display: none;
-  }
-
-  /* Show them only if the parent table has the corresponding class */
-  #timetable-grid.show-code .tt-code { display: block; }
-  #timetable-grid.show-name .tt-name { display: block; }
-  #timetable-grid.show-section .tt-section { display: inline-block; }
-  #timetable-grid.show-type .tt-type { display: inline-block; }
+  /* --- Toggle Visibility --- */
+  .tt-code, .tt-name, .tt-section, .tt-type, .tt-venue { display: none; }
+  #timetable-grid.show-code .tt-code,
+  #timetable-grid.show-name .tt-name,
   #timetable-grid.show-venue .tt-venue { display: block; }
+  #timetable-grid.show-section .tt-section,
+  #timetable-grid.show-type .tt-type { display: inline-block; }
 
-  /* Spacing tweaks for inline elements */
-  .tt-section { margin-right: 4px; }
+  /* --- Row Heights --- */
+  #timetable-grid tbody tr { height: 70px; }
 
   /* --- Print Optimizations --- */
   @media print {
-    /* Force landscape and defined margins to prevent cutoff */
-    @page { 
-      size: landscape; 
-      margin: 10mm; 
-    }
-
-    body {
-      background-color: #fff !important;
-      -webkit-print-color-adjust: exact !important;
-      print-color-adjust: exact !important;
-    }
-
-    .d-print-none, .page-header, .navbar, footer {
-      display: none !important;
-    }
-
-    /* Print only the active tab pane */
-    .tab-content > .tab-pane {
-      display: none !important;
-      opacity: 1 !important;
-    }
-    .tab-content > .tab-pane.active {
-      display: block !important;
-    }
-
-    /* Remove bootstrap container limits and shadows */
-    .container {
-      max-width: 100% !important;
-      width: 100% !important;
-      padding: 0 !important;
-      margin: 0 !important;
-    }
-
-    .card {
-      border: none !important;
-      box-shadow: none !important;
-    }
-    
-    /* Remove horizontal scrolling wrapper restrictions */
-    .print-unrestrained {
-      overflow: visible !important;
-      width: 100% !important;
-    }
-    
-    #timetable-grid {
-      min-width: 100% !important; /* Let it shrink to fit page */
-      width: 100% !important;
-      table-layout: fixed; /* Ensures even columns */
-      font-size: 10pt;
-    }
-    
-    #timetable-grid th, #timetable-grid td {
-      padding: 4px !important;
-    }
-
-    .event-card {
-      border: 1px solid #ccc; /* Ensure boundaries are visible if background colors fail */
-    }
-    
-    /* Force table border colors to be dark for list view printing */
-    .table-bordered th, .table-bordered td {
-      border-color: #999 !important;
-    }
+    @page { size: landscape; margin: 10mm; }
+    body { background-color: #fff !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    .page-header, .navbar, footer { display: none !important; }
+    .tab-content > .tab-pane { display: none !important; opacity: 1 !important; }
+    .tab-content > .tab-pane.active { display: block !important; }
+    .container { max-width: 100% !important; width: 100% !important; padding: 0 !important; margin: 0 !important; }
+    .card { border: none !important; box-shadow: none !important; }
+    .print-unrestrained { overflow: visible !important; width: 100% !important; }
+    #timetable-grid { min-width: 100% !important; table-layout: fixed; font-size: 10pt; }
+    #timetable-grid th, #timetable-grid td { padding: 4px !important; }
+    .event-card { border: 1px solid #ccc; }
+    .table-bordered th, .table-bordered td { border-color: #999 !important; }
   }
 </style>
 
