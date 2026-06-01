@@ -785,22 +785,34 @@ def seed_database():
                 'code': 'DB401',
                 'name': 'Database Systems',
                 'credits': 3,
-                'description': 'Relational databases, SQL, normalization, and transactions.',
+                'description': 'Capacity Test Course: 1 Seat Only.',
                 'sub_type': 'Tutorial',   # this course uses Tutorials only
                 'sections': [
                     {'name': 'Lecture A', 'type': 'Lecture', 'day': 'Thursday',
                      'time': '10:00 - 12:00', 'venue': 'Auditorium 3',
-                     'capacity': 90, 'parent': None},
+                     'capacity': 1, 'parent': None},
                     # ── Tutorials under Lecture A ──────────────────────────
                     {'name': 'Tutorial A1', 'type': 'Tutorial', 'day': 'Friday',
                      'time': '08:00 - 09:00', 'venue': 'Room C101',
-                     'capacity': 30, 'parent': 'Lecture A'},
+                     'capacity': 1, 'parent': 'Lecture A'},
                     {'name': 'Tutorial A2', 'type': 'Tutorial', 'day': 'Friday',
                      'time': '09:00 - 10:00', 'venue': 'Room C102',
                      'capacity': 30, 'parent': 'Lecture A'},
-                    {'name': 'Tutorial A3', 'type': 'Tutorial', 'day': 'Saturday',
-                     'time': '08:00 - 09:00', 'venue': 'Room C103',
-                     'capacity': 30, 'parent': 'Lecture A'},
+                ]
+            },
+            {
+                'code': 'TME101',
+                'name': 'Time Clash Test',
+                'credits': 3,
+                'description': 'Clashes with DB401 Lecture A (Thursday 10:00 - 12:00)',
+                'sub_type': 'Lab',
+                'sections': [
+                    {'name': 'Lecture 1', 'type': 'Lecture', 'day': 'Thursday',
+                     'time': '10:00 - 12:00', 'venue': 'Hall X',
+                     'capacity': 50, 'parent': None},
+                    {'name': 'Lab 1', 'type': 'Lab', 'day': 'Saturday',
+                     'time': '14:00 - 16:00', 'venue': 'Lab Y',
+                     'capacity': 50, 'parent': 'Lecture 1'},
                 ]
             },
         ]
@@ -839,7 +851,19 @@ def seed_database():
                     name_map[sec['name']].parent_lecture_id = name_map[sec['parent']].id
 
         db.session.commit()
-        print('[Seed] 3 courses with Lecture + Tutorial/Lab sections created.')
+        print('[Seed] Courses and sections created.')
+
+        # ── Pre-Enroll Mohamed for Capacity Testing ──────────────────────────
+        mohamed = User.query.filter_by(username='mohamed').first()
+        db401 = Course.query.filter_by(course_code='DB401').first()
+        if mohamed and db401:
+            lec = Section.query.filter_by(course_id=db401.id, section_type='Lecture', section_name='Lecture A').first()
+            tut = Section.query.filter_by(course_id=db401.id, section_type='Tutorial', section_name='Tutorial A1').first()
+            if lec and tut:
+                db.session.add(Enrollment(user_id=mohamed.id, section_id=lec.id))
+                db.session.add(Enrollment(user_id=mohamed.id, section_id=tut.id))
+                db.session.commit()
+                print('[Seed] Mohamed enrolled in DB401 to reach full capacity.')
 
 
 # Ensure database is created and seeded automatically (crucial for Vercel)
