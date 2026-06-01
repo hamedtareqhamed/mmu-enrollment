@@ -1,21 +1,5 @@
 # models.py
-# MMU Student Enrollment System — Database Schema (v3)
-#
-# Architecture:
-#   Course
-#     sub_component_type : 'Tutorial' | 'Lab' | None
-#         Set once when the admin adds the first sub-section.
-#         Enforces that a course has EITHER Tutorials OR Labs, never both.
-#
-#   Section
-#     section_type       : 'Lecture' | 'Tutorial' | 'Lab'
-#     parent_lecture_id  : NULL for Lecture rows.
-#                          Tutorial/Lab rows reference the Lecture they belong to.
-#
-#   Enrollment
-#     One row per (student, section) pair.
-#     Students enroll as a PAIR (Lecture + one sub-section) in one transaction.
-#     The DB unique constraint (user_id, section_id) prevents duplicates.
+# Database Schema for MMU Student Enrollment System
 
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -30,9 +14,9 @@ SECTION_TYPES = ('Lecture', 'Tutorial', 'Lab')
 SUB_COMPONENT_TYPES = ('Tutorial', 'Lab')
 
 
-# ---------------------------------------------------------------------------
+
 # User
-# ---------------------------------------------------------------------------
+
 class User(db.Model):
     __tablename__ = 'users'
 
@@ -60,9 +44,9 @@ class User(db.Model):
         return f'<User {self.username} ({self.role})>'
 
 
-# ---------------------------------------------------------------------------
+
 # Course
-# ---------------------------------------------------------------------------
+
 class Course(db.Model):
     __tablename__ = 'courses'
 
@@ -83,7 +67,7 @@ class Course(db.Model):
         cascade='all, delete-orphan'
     )
 
-    # ---- Convenience properties ---------------------------------------------
+    
 
     @property
     def lecture_sections(self):
@@ -102,9 +86,9 @@ class Course(db.Model):
         return f'<Course {self.course_code}: {self.course_name}>'
 
 
-# ---------------------------------------------------------------------------
+
 # Section
-# ---------------------------------------------------------------------------
+
 class Section(db.Model):
     __tablename__ = 'sections'
 
@@ -135,7 +119,7 @@ class Section(db.Model):
         'Enrollment', backref='section', lazy=True, cascade='all, delete-orphan'
     )
 
-    # ---- Computed properties ------------------------------------------------
+    
 
     @property
     def enrolled_count(self):
@@ -158,9 +142,9 @@ class Section(db.Model):
                 f'{self.section_name} — Course {self.course_id}>')
 
 
-# ---------------------------------------------------------------------------
+
 # Enrollment
-# ---------------------------------------------------------------------------
+
 class Enrollment(db.Model):
     __tablename__ = 'enrollments'
 

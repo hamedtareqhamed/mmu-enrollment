@@ -1,42 +1,12 @@
 # app.py
-# MMU Student Enrollment System — Flask Application (v3)
-#
-# Key changes from v2:
-#
-#  1. ATOMIC PAIR ENROLLMENT
-#     /student/enroll  (POST) now accepts both lecture_id AND subsection_id
-#     in the same form submission.  Both sections are validated and committed
-#     together, or neither is.  A student cannot enroll in just a Lecture or
-#     just a sub-section — both are required in one action.
-#
-#  2. TUTORIAL XOR LAB PER COURSE
-#     Course.sub_component_type is locked the first time an admin adds a
-#     sub-section.  Subsequent sub-sections must match the locked type.
-#     add_section() enforces this and updates the course field.
-#
-#  3. TIME-CLASH VALIDATION
-#     check_time_clash() checks Day + Time against ALL existing enrollments
-#     for the student.  It is called for BOTH the Lecture and the sub-section
-#     being enrolled atomically.
-#
-#  4. FORM BUG FIX
-#     The day field is now submitted via a standard <select> element in the
-#     templates (no hidden input / JS dependency).  The backend reads
-#     request.form['day'] directly — no brittle JS-to-hidden-input bridge.
-#
-#  5. DROP CASCADE
-#     Dropping a Lecture also drops all child sub-section enrollments the
-#     student holds under that Lecture in the same transaction.
+# MMU Student Enrollment System Project
 
 from functools import wraps
 from flask import (Flask, render_template, redirect, url_for,
                    request, session, flash)
 from models import db, User, Course, Section, Enrollment, SECTION_TYPES, SUB_COMPONENT_TYPES
 
-# ---------------------------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------------------------
-
+# Flask App Configuration
 app = Flask(__name__)
 app.config['SECRET_KEY']                  = 'mmu-secret-key-change-in-production'
 app.config['SQLALCHEMY_DATABASE_URI']     = 'sqlite:///enrollment.db'
@@ -45,9 +15,9 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 
 
-# ---------------------------------------------------------------------------
+
 # Access-Control Decorators
-# ---------------------------------------------------------------------------
+
 
 def login_required(f):
     @wraps(f)
@@ -69,9 +39,9 @@ def admin_required(f):
     return decorated
 
 
-# ---------------------------------------------------------------------------
+
 # Shared Helpers
-# ---------------------------------------------------------------------------
+
 
 def get_student_enrollment_map(user_id):
     """
@@ -121,9 +91,9 @@ def check_time_clash(user_id, day, time, exclude_ids=None):
     return None
 
 
-# ---------------------------------------------------------------------------
+
 # Authentication Routes
-# ---------------------------------------------------------------------------
+
 
 @app.route('/')
 def index():
@@ -162,9 +132,9 @@ def logout():
     return redirect(url_for('login'))
 
 
-# ---------------------------------------------------------------------------
+
 # Dashboard Router
-# ---------------------------------------------------------------------------
+
 
 @app.route('/dashboard')
 @login_required
@@ -174,9 +144,9 @@ def dashboard():
     return redirect(url_for('student_dashboard'))
 
 
-# ---------------------------------------------------------------------------
+
 # Student Routes
-# ---------------------------------------------------------------------------
+
 
 @app.route('/student/dashboard')
 @login_required
@@ -433,9 +403,9 @@ def timetable():
     return render_template('timetable.html', enrollments=enrollments, grid=grid, days=DAYS, hours=HOURS)
 
 
-# ---------------------------------------------------------------------------
+
 # Admin Routes
-# ---------------------------------------------------------------------------
+
 
 @app.route('/admin/dashboard')
 @login_required
@@ -699,9 +669,9 @@ def view_enrolled_students(section_id):
     )
 
 
-# ---------------------------------------------------------------------------
+
 # Seed Function
-# ---------------------------------------------------------------------------
+
 
 def seed_database():
     """
@@ -865,9 +835,9 @@ def seed_database():
         print('[Seed] 3 courses with Lecture + Tutorial/Lab sections created.')
 
 
-# ---------------------------------------------------------------------------
+
 # Entry Point
-# ---------------------------------------------------------------------------
+
 
 if __name__ == '__main__':
     with app.app_context():
