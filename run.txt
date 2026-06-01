@@ -39,10 +39,3 @@ Student Logins:
   Password: student123
 
 
-TROUBLESHOOTING:
-----------------
-If you encounter database errors (like "no such column"), it means you have an old database schema leftover.
-To fix this:
-1. Stop the server (Ctrl + C)
-2. Delete the file located at: instance/enrollment.db
-3. Run `python app.py` again to build a fresh database.

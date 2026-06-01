@@ -6,7 +6,7 @@ A lightweight, robust web application built with Python (Flask), SQLite, and Boo
 - hamed albazeli
 - Mohamed Amer Hassan
 - Gharawi, Muhannad Mohammed
-- Basil Idris Ibrahim Idris
+- Amir Taha
 
 ---
 

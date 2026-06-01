@@ -693,10 +693,10 @@ def seed_database():
         admin.set_password('admin123')
 
         members = [
-            ('hamed',    'hamed albazeli',                 'student123'),
-            ('mohamed',  'Mohamed Amer Hassan',            'student123'),
-            ('muhannad', 'Gharawi, Muhannad Mohammed',     'student123'),
-            ('basil',    'Basil Idris Ibrahim Idris',      'student123'),
+                ('hamed',    'hamed albazeli',              'student123'),
+            ('mohamed',  'Mohamed Amer Hassan',             'student123'),
+            ('muhannad', 'Gharawi, Muhannad Mohammed',      'student123'),
+            ('amir',    'Amir Taha',                        'student123'),
         ]
         users = [admin]
         for uname, fname, pwd in members:
