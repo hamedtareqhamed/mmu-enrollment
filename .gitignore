@@ -30,3 +30,4 @@ instance/
 # OS
 .DS_Store
 Thumbs.db
+run_e2e_tests.py

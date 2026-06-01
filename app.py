@@ -394,7 +394,7 @@ def drop(lecture_id):
 @app.route('/student/timetable')
 @login_required
 def timetable():
-    """All enrolled sections ordered by day then time."""
+    """All enrolled sections presented in a weekly grid timetable."""
     student_id  = session['user_id']
     enrollments = (
         Enrollment.query
@@ -403,7 +403,34 @@ def timetable():
         .order_by(Section.day, Section.time)
         .all()
     )
-    return render_template('timetable.html', enrollments=enrollments)
+    
+    DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+    HOURS = [f"{h:02d}:00" for h in range(8, 18)] # 08:00 to 17:00
+    
+    # grid[time][day] = None | 'SKIP' | Section object (with span)
+    grid = {h: {d: None for d in DAYS} for h in HOURS}
+    
+    for enr in enrollments:
+        sec = enr.section
+        start_time, end_time = [t.strip() for t in sec.time.split('-')]
+        
+        start_h = int(start_time.split(':')[0])
+        end_h = int(end_time.split(':')[0])
+        span = end_h - start_h
+        
+        if start_time in grid:
+            grid[start_time][sec.day] = {
+                'section': sec,
+                'course': sec.course,
+                'span': span
+            }
+            # mark following hours as skipped to handle HTML rowspan
+            for h in range(start_h + 1, end_h):
+                h_str = f"{h:02d}:00"
+                if h_str in grid:
+                    grid[h_str][sec.day] = 'SKIP'
+
+    return render_template('timetable.html', enrollments=enrollments, grid=grid, days=DAYS, hours=HOURS)
 
 
 # ---------------------------------------------------------------------------

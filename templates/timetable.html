@@ -7,58 +7,183 @@
   <div class="container d-flex justify-content-between align-items-center">
     <h2 class="mb-0">My Weekly Timetable</h2>
     <div>
-      <button onclick="window.print()" class="btn btn-secondary fw-bold me-2">Print</button>
+      <button onclick="window.print()" class="btn btn-secondary fw-bold me-2"><i class="bi bi-printer-fill me-1"></i>Print</button>
       <a href="{{ url_for('student_dashboard') }}" class="btn btn-outline-dark fw-bold">Course Catalog</a>
     </div>
   </div>
 </div>
 
 <div class="container pb-5">
-  <div class="card mb-4 border-dark">
-    <div class="card-header bg-dark text-white py-3">
-      <h5 class="mb-0">Timetable Overview: {{ session.get('full_name') }}</h5>
-    </div>
-    <div class="card-body p-0">
+  
+  {% if enrollments %}
+  <!-- Tabs to switch between Grid View and List View (Hidden in Print) -->
+  <ul class="nav nav-tabs mb-4 d-print-none" id="timetableTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active fw-bold px-4" id="grid-tab" data-bs-toggle="tab" data-bs-target="#grid-view" type="button" role="tab" aria-controls="grid-view" aria-selected="true"><i class="bi bi-calendar3 me-2"></i>Grid View</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link fw-bold px-4" id="list-tab" data-bs-toggle="tab" data-bs-target="#list-view" type="button" role="tab" aria-controls="list-view" aria-selected="false"><i class="bi bi-list-ul me-2"></i>List View</button>
+    </li>
+  </ul>
+  {% endif %}
+
+  <div class="tab-content" id="timetableTabsContent">
+    <!-- ======================= GRID VIEW ======================= -->
+    <div class="tab-pane fade show active" id="grid-view" role="tabpanel" aria-labelledby="grid-tab">
+      
       {% if enrollments %}
-        <div class="table-responsive">
-          <table class="table table-bordered table-striped mb-0 text-center align-middle">
-            <thead class="table-light">
-              <tr>
-                <th>Day</th>
-                <th>Time</th>
-                <th>Course</th>
-                <th>Section</th>
-                <th>Type</th>
-                <th>Venue</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for enrollment in enrollments %}
-                {% set section = enrollment.section %}
-                {% set course = section.course %}
-                <tr>
-                  <td class="fw-bold">{{ section.day }}</td>
-                  <td>{{ section.time }}</td>
-                  <td class="fw-bold text-primary">{{ course.course_code }} - {{ course.course_name }}</td>
-                  <td>{{ section.section_name }}</td>
-                  <td><span class="badge bg-secondary rounded-1">{{ section.section_type }}</span></td>
-                  <td>{{ section.venue }}</td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+      <!-- Display Options Control Panel (Hidden in Print) -->
+      <div class="d-print-none mb-4 p-3 bg-white border rounded shadow-sm d-flex align-items-center gap-4 flex-wrap">
+        <strong class="mb-0 text-muted">Display Options:</strong>
+        
+        <div class="form-check form-switch">
+          <input class="form-check-input tt-toggle" type="checkbox" id="chkCode" value="show-code" checked>
+          <label class="form-check-label" for="chkCode">Course Code</label>
         </div>
-      {% else %}
-        <div class="p-5 text-center text-muted">
-          <h5>No Classes Enrolled Yet</h5>
-          <a href="{{ url_for('student_dashboard') }}" class="btn btn-primary mt-3">Browse Courses</a>
+        
+        <div class="form-check form-switch">
+          <input class="form-check-input tt-toggle" type="checkbox" id="chkName" value="show-name">
+          <label class="form-check-label" for="chkName">Course Name</label>
         </div>
+        
+        <div class="form-check form-switch">
+          <input class="form-check-input tt-toggle" type="checkbox" id="chkSection" value="show-section" checked>
+          <label class="form-check-label" for="chkSection">Section Name</label>
+        </div>
+        
+        <div class="form-check form-switch">
+          <input class="form-check-input tt-toggle" type="checkbox" id="chkType" value="show-type" checked>
+          <label class="form-check-label" for="chkType">Section Type</label>
+        </div>
+
+        <div class="form-check form-switch">
+          <input class="form-check-input tt-toggle" type="checkbox" id="chkVenue" value="show-venue" checked>
+          <label class="form-check-label" for="chkVenue">Venue</label>
+        </div>
+      </div>
       {% endif %}
-    </div>
-  </div>
+
+      <div class="card mb-4 border-0 shadow-sm" id="timetable-card">
+        <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
+          <h5 class="mb-0 fw-bold text-dark">Timetable Grid: {{ session.get('full_name') }}</h5>
+          <span class="badge bg-primary rounded-pill d-print-none">{{ enrollments|length }} Classes</span>
+        </div>
+        
+        <div class="card-body p-0">
+          {% if enrollments %}
+            <div class="table-responsive print-unrestrained">
+              <!-- The container classes control what data is visible -->
+              <table id="timetable-grid" class="table table-bordered text-center align-middle mb-0 show-code show-section show-type show-venue" style="table-layout: fixed; min-width: 900px;">
+                <thead class="table-light text-secondary">
+                  <tr>
+                    <th style="width: 10%; border-bottom: 2px solid #dee2e6;">Time</th>
+                    {% for day in days %}
+                      <th style="width: 15%; border-bottom: 2px solid #dee2e6;">{{ day }}</th>
+                    {% endfor %}
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for hour in hours %}
+                    <tr>
+                      <td class="fw-bold text-muted bg-light border-end">{{ hour }}</td>
+                      {% for day in days %}
+                        {% set cell = grid[hour][day] %}
+                        {% if cell == 'SKIP' %}
+                          <!-- Merged with row above -->
+                        {% elif cell %}
+                          {% set sec = cell.section %}
+                          {% set course = cell.course %}
+                          
+                          {% set event_class = 'event-lecture' %}
+                          {% if sec.section_type == 'Tutorial' %}
+                            {% set event_class = 'event-tutorial' %}
+                          {% elif sec.section_type == 'Lab' %}
+                            {% set event_class = 'event-lab' %}
+                          {% endif %}
+
+                          <td rowspan="{{ cell.span }}" class="p-1 border-end" style="height: 1px; vertical-align: top;">
+                            <div class="event-card {{ event_class }}">
+                              <div class="tt-code fw-bold">{{ course.course_code }}</div>
+                              <div class="tt-name fw-bold">{{ course.course_name }}</div>
+                              <div class="tt-section">{{ sec.section_name }}</div>
+                              <div class="tt-type">({{ sec.section_type }})</div>
+                              <div class="tt-venue mt-1 fw-bold"><i class="bi bi-geo-alt-fill me-1 d-print-none"></i>{{ sec.venue }}</div>
+                            </div>
+                          </td>
+                        {% else %}
+                          <td class="border-end"></td>
+                        {% endif %}
+                      {% endfor %}
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <div class="p-5 text-center text-muted bg-light rounded-bottom">
+              <h5 class="fw-bold">No Classes Enrolled Yet</h5>
+              <p>Your timetable is currently empty.</p>
+              <a href="{{ url_for('student_dashboard') }}" class="btn btn-primary mt-3">Browse Course Catalog</a>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div> <!-- END GRID VIEW -->
+
+    <!-- ======================= LIST VIEW ======================= -->
+    <div class="tab-pane fade" id="list-view" role="tabpanel" aria-labelledby="list-tab">
+      <div class="card mb-4 border-dark shadow-sm">
+        <div class="card-header bg-dark text-white py-3">
+          <h5 class="mb-0">Timetable List: {{ session.get('full_name') }}</h5>
+        </div>
+        <div class="card-body p-0">
+          {% if enrollments %}
+            <div class="table-responsive print-unrestrained">
+              <table class="table table-bordered table-striped mb-0 text-center align-middle">
+                <thead class="table-light">
+                  <tr>
+                    <th>Day</th>
+                    <th>Time</th>
+                    <th>Course</th>
+                    <th>Section</th>
+                    <th>Type</th>
+                    <th>Venue</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for enrollment in enrollments %}
+                    {% set section = enrollment.section %}
+                    {% set course = section.course %}
+                    <tr>
+                      <td class="fw-bold">{{ section.day }}</td>
+                      <td>{{ section.time }}</td>
+                      <td class="fw-bold text-primary">{{ course.course_code }} - {{ course.course_name }}</td>
+                      <td>{{ section.section_name }}</td>
+                      <td>
+                        <span class="badge {% if section.section_type == 'Lecture' %}bg-primary{% elif section.section_type == 'Tutorial' %}bg-success{% else %}bg-warning text-dark{% endif %} rounded-1">
+                          {{ section.section_type }}
+                        </span>
+                      </td>
+                      <td><i class="bi bi-geo-alt-fill me-1 text-muted d-print-none"></i>{{ section.venue }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <div class="p-5 text-center text-muted bg-light rounded-bottom">
+              <h5 class="fw-bold">No Classes Enrolled Yet</h5>
+              <p>Your timetable is currently empty.</p>
+              <a href="{{ url_for('student_dashboard') }}" class="btn btn-primary mt-3">Browse Course Catalog</a>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div> <!-- END LIST VIEW -->
+  </div> <!-- END TAB CONTENT -->
 
   {% if enrollments %}
-    <div class="card border-danger d-print-none">
+    <div class="card border-danger shadow-sm d-print-none mt-5">
       <div class="card-header bg-danger text-white py-2 fw-bold">Quick Drop (Lecture Only)</div>
       <div class="card-body">
         <p class="text-muted small mb-3">Note: Dropping a Lecture will automatically drop its associated Tutorial or Lab.</p>
@@ -78,4 +203,147 @@
     </div>
   {% endif %}
 </div>
+
+<style>
+  /* --- Event Card Styling (Apple/Google Calendar Style) --- */
+  #timetable-grid tbody tr {
+    height: 70px; /* Force rows to have a consistent height */
+  }
+  
+  .event-card {
+    border-radius: 6px;
+    padding: 8px 10px;
+    height: 100%; /* Fill the height of the td */
+    min-height: 100%;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    line-height: 1.3;
+    font-size: 0.85rem;
+    overflow: hidden;
+  }
+  
+  .event-lecture {
+    background-color: #e0f2fe; /* Light Blue */
+    border-left: 4px solid #0284c7; /* Dark Blue */
+    color: #0369a1;
+  }
+  
+  .event-tutorial {
+    background-color: #dcfce7; /* Light Green */
+    border-left: 4px solid #16a34a; /* Dark Green */
+    color: #15803d;
+  }
+  
+  .event-lab {
+    background-color: #fef9c3; /* Light Yellow */
+    border-left: 4px solid #ca8a04; /* Dark Yellow */
+    color: #854d0e;
+  }
+
+  /* --- Toggle Visibility Logic --- */
+  /* By default, hide everything inside the event card */
+  .tt-code, .tt-name, .tt-section, .tt-type, .tt-venue {
+    display: none;
+  }
+
+  /* Show them only if the parent table has the corresponding class */
+  #timetable-grid.show-code .tt-code { display: block; }
+  #timetable-grid.show-name .tt-name { display: block; }
+  #timetable-grid.show-section .tt-section { display: inline-block; }
+  #timetable-grid.show-type .tt-type { display: inline-block; }
+  #timetable-grid.show-venue .tt-venue { display: block; }
+
+  /* Spacing tweaks for inline elements */
+  .tt-section { margin-right: 4px; }
+
+  /* --- Print Optimizations --- */
+  @media print {
+    /* Force landscape and defined margins to prevent cutoff */
+    @page { 
+      size: landscape; 
+      margin: 10mm; 
+    }
+
+    body {
+      background-color: #fff !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    .d-print-none, .page-header, .navbar, footer {
+      display: none !important;
+    }
+
+    /* Print only the active tab pane */
+    .tab-content > .tab-pane {
+      display: none !important;
+      opacity: 1 !important;
+    }
+    .tab-content > .tab-pane.active {
+      display: block !important;
+    }
+
+    /* Remove bootstrap container limits and shadows */
+    .container {
+      max-width: 100% !important;
+      width: 100% !important;
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+
+    .card {
+      border: none !important;
+      box-shadow: none !important;
+    }
+    
+    /* Remove horizontal scrolling wrapper restrictions */
+    .print-unrestrained {
+      overflow: visible !important;
+      width: 100% !important;
+    }
+    
+    #timetable-grid {
+      min-width: 100% !important; /* Let it shrink to fit page */
+      width: 100% !important;
+      table-layout: fixed; /* Ensures even columns */
+      font-size: 10pt;
+    }
+    
+    #timetable-grid th, #timetable-grid td {
+      padding: 4px !important;
+    }
+
+    .event-card {
+      border: 1px solid #ccc; /* Ensure boundaries are visible if background colors fail */
+    }
+    
+    /* Force table border colors to be dark for list view printing */
+    .table-bordered th, .table-bordered td {
+      border-color: #999 !important;
+    }
+  }
+</style>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const table = document.getElementById('timetable-grid');
+    const toggles = document.querySelectorAll('.tt-toggle');
+
+    // Handle checkboxes for Grid View
+    if(table && toggles) {
+      toggles.forEach(toggle => {
+        toggle.addEventListener('change', function() {
+          if (this.checked) {
+            table.classList.add(this.value);
+          } else {
+            table.classList.remove(this.value);
+          }
+        });
+      });
+    }
+  });
+</script>
 {% endblock %}
