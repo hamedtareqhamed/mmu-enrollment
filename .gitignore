@@ -31,3 +31,5 @@ instance/
 .DS_Store
 Thumbs.db
 run_e2e_tests.py
+count_lines.py
+test_grid.py
