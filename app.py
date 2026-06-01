@@ -1,6 +1,7 @@
 # app.py
 # MMU Student Enrollment System Project
 
+import os
 from functools import wraps
 from flask import (Flask, render_template, redirect, url_for,
                    request, session, flash)
@@ -9,7 +10,13 @@ from models import db, User, Course, Section, Enrollment, SECTION_TYPES, SUB_COM
 # Flask App Configuration
 app = Flask(__name__)
 app.config['SECRET_KEY']                  = 'mmu-secret-key-change-in-production'
-app.config['SQLALCHEMY_DATABASE_URI']     = 'sqlite:///enrollment.db'
+
+# Vercel Serverless File System limitation fix
+if os.environ.get('VERCEL'):
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/enrollment.db'
+else:
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///enrollment.db'
+    
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
@@ -835,12 +842,15 @@ def seed_database():
         print('[Seed] 3 courses with Lecture + Tutorial/Lab sections created.')
 
 
+# Ensure database is created and seeded automatically (crucial for Vercel)
+with app.app_context():
+    db.create_all()
+    try:
+        seed_database()
+    except Exception as e:
+        print(f"Seed error (can be ignored if DB exists): {e}")
 
 # Entry Point
 
-
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
-        seed_database()
     app.run(debug=True)
